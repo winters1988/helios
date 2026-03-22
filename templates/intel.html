@@ -1,0 +1,747 @@
+<!DOCTYPE html>
+<html lang="ko" data-bs-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OSINT - 인텔 브리핑</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <style>
+        :root {
+            --accent: #7c5cfc; --accent-glow: rgba(124,92,252,0.2);
+            --green: #10b981; --orange: #f59e0b; --red: #ef4444; --blue: #3b82f6;
+            --bg: #0f0f14; --bg-card: #1a1a24; --bg-el: #22222e; --border: #2a2a3a;
+            --text: #e2e2e8; --dim: #8888a0;
+        }
+        *{box-sizing:border-box}
+        body{background:var(--bg);color:var(--text);font-family:'Inter','Segoe UI',system-ui,sans-serif;margin:0}
+
+        .sidebar{position:fixed;left:0;top:0;bottom:0;width:220px;background:var(--bg-card);border-right:1px solid var(--border);display:flex;flex-direction:column;z-index:100}
+        .sidebar-brand{padding:18px 16px;font-size:1.1rem;font-weight:700;color:var(--accent);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px}
+        .sidebar-nav{flex:1;padding:8px 0}
+        .sidebar-nav a{display:flex;align-items:center;gap:10px;padding:10px 16px;color:var(--dim);text-decoration:none;font-size:.85rem;border-left:3px solid transparent;transition:.15s}
+        .sidebar-nav a:hover{color:var(--text);background:var(--bg-el)}
+        .sidebar-nav a.active{color:var(--accent);background:var(--accent-glow);border-left-color:var(--accent)}
+        .sidebar-nav a i{font-size:1rem;width:18px;text-align:center}
+        .sidebar-footer{padding:14px 16px;border-top:1px solid var(--border);font-size:.72rem;color:var(--dim)}
+
+        .main{margin-left:220px;min-height:100vh}
+        .topbar{height:52px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;padding:0 24px;background:var(--bg-card)}
+        .topbar h4{margin:0;font-size:1rem;font-weight:600}
+        .content{padding:20px 24px}
+
+        .stat-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:20px}
+        .stat-box{background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:14px 16px}
+        .stat-box .lb{font-size:.7rem;color:var(--dim);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px}
+        .stat-box .vl{font-size:1.4rem;font-weight:700}
+        .vl.p{color:var(--accent)} .vl.g{color:var(--green)} .vl.o{color:var(--orange)} .vl.b{color:var(--blue)} .vl.r{color:var(--red)}
+
+        .card-box{background:var(--bg-card);border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:16px}
+        .card-head{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid var(--border)}
+        .card-head .nm{font-weight:600;font-size:.92rem;display:flex;align-items:center;gap:8px}
+        .card-body-inner{padding:16px 18px}
+
+        .module-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px;margin-bottom:16px}
+        .module-item{background:var(--bg-el);border:1px solid var(--border);border-radius:8px;padding:10px 14px;display:flex;align-items:center;gap:10px;cursor:pointer;transition:.15s}
+        .module-item:hover{border-color:var(--accent)}
+        .module-item.selected{border-color:var(--accent);background:var(--accent-glow)}
+        .module-item input{display:none}
+        .module-item .mi{font-size:1.1rem;width:22px;text-align:center}
+        .module-item .mn{font-size:.82rem;font-weight:500}
+        .module-item .ms{font-size:.7rem;color:var(--dim)}
+
+        .btn-run{background:var(--accent);color:#fff;border:none;border-radius:8px;padding:10px 24px;font-weight:700;font-size:.9rem;cursor:pointer;display:flex;align-items:center;gap:8px;transition:.15s}
+        .btn-run:hover{background:#6b4de6}
+        .btn-run:disabled{background:var(--border);cursor:default}
+        .btn-o{background:transparent;border:1px solid var(--border);color:var(--dim);border-radius:6px;padding:5px 12px;font-size:.78rem;cursor:pointer;transition:.15s}
+        .btn-o:hover{border-color:var(--accent);color:var(--accent)}
+
+        .progress-box{background:var(--bg-el);border:1px solid var(--border);border-radius:8px;padding:14px 18px;margin-bottom:16px;display:none}
+        .progress-bar-wrap{height:4px;background:var(--border);border-radius:2px;overflow:hidden;margin-top:8px}
+        .progress-bar-fill{height:100%;background:var(--accent);border-radius:2px;transition:width .4s}
+
+        /* 브리핑 렌더링 */
+        .briefing-content{font-size:.88rem;line-height:1.75;color:var(--text)}
+        .briefing-content h1{font-size:1.2rem;font-weight:700;color:var(--accent);margin:0 0 12px;border-bottom:1px solid var(--border);padding-bottom:8px}
+        .briefing-content h2{font-size:1rem;font-weight:700;color:var(--text);margin:20px 0 8px}
+        .briefing-content h3{font-size:.9rem;font-weight:600;color:var(--dim);margin:14px 0 6px}
+        .briefing-content strong{color:var(--orange)}
+        .briefing-content ul{padding-left:20px;margin:6px 0}
+        .briefing-content li{margin-bottom:4px}
+        .briefing-content blockquote{border-left:3px solid var(--accent);margin:8px 0;padding:6px 12px;color:var(--dim);background:var(--bg-el);border-radius:0 6px 6px 0}
+        .briefing-content hr{border-color:var(--border);margin:14px 0}
+        .briefing-content code{background:var(--bg-el);padding:1px 6px;border-radius:4px;font-size:.82rem;color:var(--green)}
+        .briefing-content p{margin:0 0 10px}
+
+        /* 브리핑 목록 */
+        .briefing-list{display:flex;flex-direction:column;gap:6px}
+        .briefing-item{background:var(--bg-el);border:1px solid var(--border);border-radius:8px;padding:10px 14px;display:flex;align-items:center;justify-content:space-between;cursor:pointer;transition:.15s}
+        .briefing-item:hover{border-color:var(--accent)}
+        .briefing-item.active{border-color:var(--accent);background:var(--accent-glow)}
+        .briefing-item .bi-info{font-size:.78rem;color:var(--dim)}
+        .briefing-item .bi-date{font-size:.72rem;color:var(--dim)}
+        .badge-ai{background:var(--accent);font-size:.65rem;padding:1px 6px;border-radius:3px;color:#fff}
+        .badge-auto{background:var(--dim);font-size:.65rem;padding:1px 6px;border-radius:3px;color:#fff}
+
+        /* 스케줄 */
+        .time-chip{display:inline-flex;align-items:center;gap:6px;background:var(--bg-el);border:1px solid var(--border);border-radius:6px;padding:4px 10px;font-size:.8rem;margin:3px}
+        .time-chip .del{cursor:pointer;color:var(--red);font-size:.9rem;margin-left:2px}
+        .time-chip .del:hover{opacity:.7}
+        .tgl{position:relative;width:40px;height:22px;cursor:pointer;display:inline-block}
+        .tgl input{opacity:0;width:0;height:0}
+        .tgl .tk{position:absolute;inset:0;background:var(--border);border-radius:11px;transition:.2s}
+        .tgl .tk::after{content:'';position:absolute;width:16px;height:16px;left:3px;top:3px;background:#fff;border-radius:50%;transition:.2s}
+        .tgl input:checked+.tk{background:var(--green)}
+        .tgl input:checked+.tk::after{transform:translateX(18px)}
+        .next-run{font-size:.72rem;color:var(--green);margin-top:6px}
+
+        /* PDF 모달 */
+        .pdf-modal{display:none;position:fixed;inset:0;z-index:500;background:rgba(0,0,0,.75);align-items:center;justify-content:center}
+        .pdf-modal.open{display:flex}
+        .pdf-shell{background:var(--bg-card);border:1px solid var(--border);border-radius:14px;width:90vw;max-width:960px;height:90vh;display:flex;flex-direction:column;overflow:hidden}
+        .pdf-shell-head{display:flex;align-items:center;justify-content:space-between;padding:12px 18px;border-bottom:1px solid var(--border);flex-shrink:0}
+        .pdf-shell-head .ttl{font-weight:600;font-size:.9rem;display:flex;align-items:center;gap:8px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+        .pdf-shell-actions{display:flex;gap:8px;flex-shrink:0}
+        .pdf-frame{flex:1;border:none;background:#fff}
+        .btn-dl{background:var(--red);color:#fff;border:none;border-radius:6px;padding:6px 14px;font-size:.8rem;cursor:pointer;display:flex;align-items:center;gap:6px}
+        .btn-dl:hover{opacity:.85}
+        .btn-close-modal{background:transparent;border:1px solid var(--border);color:var(--dim);border-radius:6px;padding:6px 10px;cursor:pointer;font-size:.85rem}
+        .btn-close-modal:hover{color:var(--text)}
+        @media(max-width:1024px){.pdf-shell{width:98vw;height:95vh;border-radius:10px}}
+
+        .empty{text-align:center;padding:40px 20px;color:var(--dim)}
+        .empty i{font-size:2rem;margin-bottom:8px;display:block}
+        .status-dot{width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:5px}
+        .status-dot.run{background:var(--orange);animation:pulse 1s infinite}
+        .status-dot.ok{background:var(--green)}
+        .status-dot.err{background:var(--red)}
+        @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+
+        /* Mobile */
+        .sidebar-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:99}
+        .sidebar-overlay.open{display:block}
+        .menu-btn{display:none;background:none;border:none;color:var(--text);font-size:1.4rem;cursor:pointer;padding:4px 10px;line-height:1;flex-shrink:0}
+        .topbar-left{display:flex;align-items:center}
+
+        @media(max-width:1024px){
+            .sidebar{transform:translateX(-100%);transition:transform .25s;z-index:200}
+            .sidebar.open{transform:translateX(0)}
+            .main{margin-left:0}
+            .menu-btn{display:inline-flex;align-items:center}
+            .topbar{padding:0 10px}
+            .content{padding:12px 10px}
+            .stat-row{grid-template-columns:repeat(2,1fr);gap:8px}
+            .module-grid{grid-template-columns:repeat(2,1fr)}
+        }
+    </style>
+</head>
+<body>
+
+<div class="sidebar-overlay" id="sidebarOverlay" onclick="closeSidebar()"></div>
+<div class="sidebar" id="sidebar">
+    <div class="sidebar-brand"><i class="bi bi-binoculars"></i> OSINT Recon</div>
+    <nav class="sidebar-nav">
+        <a href="/"><i class="bi bi-activity"></i> 대시보드</a>
+        <a href="/browse"><i class="bi bi-database"></i> 벡터 DB</a>
+        <a href="/chat"><i class="bi bi-chat-dots"></i> AI 채팅</a>
+        <a href="/intel" class="active"><i class="bi bi-radar"></i> 인텔 브리핑</a>
+        <a href="/osint-settings"><i class="bi bi-sliders2"></i> 수집설정</a>
+    </nav>
+    <div class="sidebar-footer">
+        <a href="/logout" style="display:block;color:var(--dim);font-size:.72rem;text-decoration:none"><i class="bi bi-box-arrow-left me-1"></i>로그아웃</a>
+    </div>
+</div>
+
+<div class="main">
+    <div class="topbar">
+        <div class="topbar-left">
+            <button class="menu-btn" onclick="toggleSidebar()"><i class="bi bi-list"></i></button>
+            <h4><i class="bi bi-radar me-2" style="color:var(--accent)"></i>인텔 브리핑</h4>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center">
+            <span id="statusBadge" style="font-size:.75rem;color:var(--dim)"></span>
+            <button class="btn-o" onclick="loadBriefings()"><i class="bi bi-arrow-clockwise me-1"></i>새로고침</button>
+        </div>
+    </div>
+
+    <div class="content">
+        <!-- Stats -->
+        <div class="stat-row" id="statRow">
+            <div class="stat-box"><div class="lb">군용기</div><div class="vl b" id="stAviation">-</div></div>
+            <div class="stat-box"><div class="lb">군함</div><div class="vl p" id="stMaritime">-</div></div>
+            <div class="stat-box"><div class="lb">분쟁 이벤트</div><div class="vl r" id="stConflicts">-</div></div>
+            <div class="stat-box"><div class="lb">열점</div><div class="vl o" id="stThermal">-</div></div>
+            <div class="stat-box"><div class="lb">알림</div><div class="vl g" id="stAlerts">-</div></div>
+            <div class="stat-box"><div class="lb">최근 수집</div><div style="font-size:.78rem;color:var(--dim);margin-top:4px" id="stLastRun">-</div></div>
+        </div>
+
+        <div style="display:grid;grid-template-columns:320px 1fr;gap:16px" id="mainGrid">
+            <!-- 왼쪽: 수집 제어 + 히스토리 -->
+            <div>
+                <!-- 수집 제어 -->
+                <div class="card-box" style="margin-bottom:16px">
+                    <div class="card-head">
+                        <div class="nm"><i class="bi bi-play-circle" style="color:var(--green)"></i>OSINT 수집 실행</div>
+                    </div>
+                    <div class="card-body-inner">
+                        <div style="font-size:.75rem;color:var(--dim);margin-bottom:10px">수집할 모듈 선택 (전체 선택 시 전체 실행)</div>
+
+                        <div style="margin-bottom:10px">
+                            <label class="module-item" id="mod-all" onclick="toggleAll()">
+                                <span class="mi">🌐</span>
+                                <div><div class="mn">전체 수집</div><div class="ms">모든 모듈 실행</div></div>
+                            </label>
+                        </div>
+
+                        <div class="module-grid" id="moduleGrid">
+                            <label class="module-item" data-mod="aviation">
+                                <span class="mi">✈️</span>
+                                <div><div class="mn">항공</div><div class="ms">OpenSky</div></div>
+                            </label>
+                            <label class="module-item" data-mod="maritime">
+                                <span class="mi">⚓</span>
+                                <div><div class="mn">해상</div><div class="ms">AISStream</div></div>
+                            </label>
+                            <label class="module-item" data-mod="conflicts">
+                                <span class="mi">💥</span>
+                                <div><div class="mn">분쟁</div><div class="ms">GDELT/ACLED</div></div>
+                            </label>
+                            <label class="module-item" data-mod="thermal">
+                                <span class="mi">🔥</span>
+                                <div><div class="mn">열점</div><div class="ms">NASA FIRMS</div></div>
+                            </label>
+                            <label class="module-item" data-mod="commodity">
+                                <span class="mi">📈</span>
+                                <div><div class="mn">원자재</div><div class="ms">가격 API</div></div>
+                            </label>
+                            <label class="module-item" data-mod="forex">
+                                <span class="mi">💱</span>
+                                <div><div class="mn">환율</div><div class="ms">ExchangeRate</div></div>
+                            </label>
+                            <label class="module-item" data-mod="logistics">
+                                <span class="mi">🚢</span>
+                                <div><div class="mn">해운 물류</div><div class="ms">GDELT</div></div>
+                            </label>
+                        </div>
+
+                        <!-- 진행 상태 -->
+                        <div class="progress-box" id="progressBox">
+                            <div style="display:flex;justify-content:space-between;font-size:.8rem">
+                                <span><span class="status-dot run"></span><span id="progressText">수집 중...</span></span>
+                                <span id="progressPct"></span>
+                            </div>
+                            <div class="progress-bar-wrap"><div class="progress-bar-fill" id="progressFill" style="width:30%"></div></div>
+                        </div>
+
+                        <button class="btn-run" id="runBtn" onclick="runCollection()">
+                            <i class="bi bi-play-fill"></i>수집 시작
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 스케줄 설정 -->
+                <div class="card-box" style="margin-bottom:16px">
+                    <div class="card-head">
+                        <div class="nm"><i class="bi bi-alarm" style="color:var(--orange)"></i>자동 수집 스케줄</div>
+                        <label class="tgl" title="스케줄 활성화">
+                            <input type="checkbox" id="schedEnabled" onchange="saveSchedule()">
+                            <span class="tk"></span>
+                        </label>
+                    </div>
+                    <div class="card-body-inner">
+                        <div style="font-size:.75rem;color:var(--dim);margin-bottom:10px">매일 지정 시각(KST)에 자동 수집 → 텔레그램 발송</div>
+
+                        <div style="display:flex;gap:6px;margin-bottom:8px">
+                            <input type="time" id="timeInput" value="06:00"
+                                style="background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:5px 10px;font-size:.82rem;flex:1">
+                            <button class="btn-o" onclick="addTime()" style="padding:5px 12px">
+                                <i class="bi bi-plus-lg"></i>
+                            </button>
+                        </div>
+
+                        <div id="timeChips" style="margin-bottom:10px;min-height:28px"></div>
+
+                        <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:10px">
+                            <label style="font-size:.78rem;color:var(--dim);display:flex;align-items:center;gap:8px">
+                                <input type="checkbox" id="optTelegram" checked onchange="saveSchedule()">
+                                <i class="bi bi-telegram" style="color:#2AABEE"></i> 텔레그램 발송
+                            </label>
+                        </div>
+
+                        <div style="margin-bottom:10px">
+                            <div style="font-size:.72rem;color:var(--dim);margin-bottom:4px">
+                                <i class="bi bi-link-45deg"></i> 공개 URL (텔레그램 PDF 링크용)
+                            </div>
+                            <input type="text" id="publicUrlInput"
+                                placeholder="https://helios.ngrok.pro"
+                                style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:5px 10px;font-size:.78rem"
+                                onblur="saveSchedule()">
+                            <div style="font-size:.68rem;color:var(--dim);margin-top:3px">ngrok 등 외부 접근 가능한 주소 입력 시 텔레그램에 PDF 링크 포함</div>
+                        </div>
+
+                        <div class="next-run" id="nextRunInfo"></div>
+                    </div>
+                </div>
+
+                <!-- 브리핑 목록 -->
+                <div class="card-box">
+                    <div class="card-head">
+                        <div class="nm"><i class="bi bi-clock-history" style="color:var(--blue)"></i>브리핑 히스토리</div>
+                        <button class="btn-o" id="indexAllBtn" onclick="indexAllBriefings()" title="모든 브리핑을 벡터 DB에 저장">
+                            <i class="bi bi-database-add"></i> 전체 벡터 저장
+                        </button>
+                    </div>
+                    <div id="indexAllStatus" style="display:none;font-size:.75rem;padding:6px 12px;color:var(--green);border-bottom:1px solid var(--border)"></div>
+                    <div class="card-body-inner" style="padding:10px">
+                        <div class="briefing-list" id="briefingList">
+                            <div class="empty"><i class="bi bi-inbox"></i>브리핑 없음</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 오른쪽: 브리핑 내용 -->
+            <div class="card-box" style="height:fit-content">
+                <div class="card-head">
+                    <div class="nm"><i class="bi bi-file-text" style="color:var(--accent)"></i>브리핑 내용</div>
+                    <div style="font-size:.72rem;color:var(--dim)" id="briefingMeta"></div>
+                </div>
+                <div class="card-body-inner">
+                    <div id="briefingViewer">
+                        <div class="empty">
+                            <i class="bi bi-radar"></i>
+                            <div>브리핑을 선택하거나 수집을 실행하세요</div>
+                            <div style="font-size:.75rem;margin-top:6px">KSPD OSINT 엔진으로 전 세계 군사·안보·공급망 동향을 수집하고 AI 브리핑을 생성합니다</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- PDF 미리보기 모달 -->
+<div class="pdf-modal" id="pdfModal" onclick="closePdfModal(event)">
+    <div class="pdf-shell">
+        <div class="pdf-shell-head">
+            <div class="ttl"><i class="bi bi-file-pdf-fill" style="color:var(--red)"></i><span id="pdfModalTitle">브리핑 PDF</span></div>
+            <div class="pdf-shell-actions">
+                <button class="btn-close-modal" onclick="closePdfModal()"><i class="bi bi-x-lg"></i></button>
+            </div>
+        </div>
+        <iframe id="pdfFrame" class="pdf-frame" src=""></iframe>
+    </div>
+</div>
+
+<script>
+let currentJobId = null;
+let pollTimer = null;
+let allSelected = true;
+
+// 모듈 선택
+document.querySelectorAll('#moduleGrid .module-item').forEach(el => {
+    el.addEventListener('click', () => {
+        el.classList.toggle('selected');
+        updateAllState();
+    });
+});
+
+function toggleAll() {
+    allSelected = !allSelected;
+    document.getElementById('mod-all').classList.toggle('selected', allSelected);
+    document.querySelectorAll('#moduleGrid .module-item').forEach(el => {
+        el.classList.toggle('selected', !allSelected);
+    });
+}
+
+function updateAllState() {
+    const selected = document.querySelectorAll('#moduleGrid .module-item.selected').length;
+    const total = document.querySelectorAll('#moduleGrid .module-item').length;
+    allSelected = selected === 0;
+    document.getElementById('mod-all').classList.toggle('selected', allSelected);
+}
+
+// 전체 기본 선택
+document.getElementById('mod-all').classList.add('selected');
+
+async function runCollection() {
+    const btn = document.getElementById('runBtn');
+    const selected = [...document.querySelectorAll('#moduleGrid .module-item.selected')].map(el => el.dataset.mod);
+    const modules = allSelected || selected.length === 0 ? [] : selected;
+
+    btn.disabled = true;
+    btn.innerHTML = '<i class="bi bi-hourglass-split"></i>수집 중...';
+
+    try {
+        const resp = await fetch('/api/intel/run', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({modules})
+        });
+        const data = await resp.json();
+        currentJobId = data.job_id;
+        showProgress(true);
+        pollJob();
+    } catch(e) {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="bi bi-play-fill"></i>수집 시작';
+        alert('수집 시작 실패: ' + e.message);
+    }
+}
+
+function showProgress(show) {
+    document.getElementById('progressBox').style.display = show ? 'block' : 'none';
+}
+
+function pollJob() {
+    if (pollTimer) clearInterval(pollTimer);
+    pollTimer = setInterval(async () => {
+        if (!currentJobId) return;
+        try {
+            const resp = await fetch(`/api/intel/job/${currentJobId}`);
+            const job = await resp.json();
+            document.getElementById('progressText').textContent = job.current || '처리 중...';
+
+            if (job.status === 'done') {
+                clearInterval(pollTimer);
+                showProgress(false);
+                const btn = document.getElementById('runBtn');
+                btn.disabled = false;
+                btn.innerHTML = '<i class="bi bi-play-fill"></i>수집 시작';
+                loadLatestStatus();
+                loadBriefings();
+                if (job.briefing_file) loadBriefing(job.briefing_file);
+            } else if (job.status === 'error') {
+                clearInterval(pollTimer);
+                showProgress(false);
+                const btn = document.getElementById('runBtn');
+                btn.disabled = false;
+                btn.innerHTML = '<i class="bi bi-play-fill"></i>수집 시작';
+                alert('수집 오류: ' + (job.errors || []).join('\n'));
+            }
+        } catch(e) {}
+    }, 2000);
+}
+
+async function loadLatestStatus() {
+    try {
+        const resp = await fetch('/api/intel/status');
+        const s = await resp.json();
+        if (!s.last_run) return;
+        document.getElementById('stAviation').textContent = s.aviation_mil ?? '-';
+        document.getElementById('stMaritime').textContent = s.maritime_naval ?? '-';
+        document.getElementById('stConflicts').textContent = s.conflicts_events ?? '-';
+        document.getElementById('stThermal').textContent = s.thermal_hotspots ?? '-';
+        document.getElementById('stAlerts').textContent = s.alerts ?? '-';
+        const d = new Date(s.last_run);
+        document.getElementById('stLastRun').textContent = isNaN(d) ? s.last_run :
+            d.toLocaleString('ko-KR', {month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'});
+    } catch(e) {}
+}
+
+async function loadBriefings() {
+    try {
+        const resp = await fetch('/api/intel/briefings');
+        const data = await resp.json();
+        const list = document.getElementById('briefingList');
+        if (!data.briefings || data.briefings.length === 0) {
+            list.innerHTML = '<div class="empty"><i class="bi bi-inbox"></i>브리핑 없음</div>';
+            return;
+        }
+        list.innerHTML = data.briefings.map(b => {
+            const d = new Date(b.generated_at);
+            const dateStr = isNaN(d) ? b.generated_at :
+                d.toLocaleString('ko-KR', {month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'});
+            const badge = b.icd203
+                ? '<span class="badge-ai">AI</span>'
+                : '<span class="badge-auto">Auto</span>';
+            const pdfBtn = b.has_pdf
+                ? `<button onclick="event.stopPropagation(); openPdfModal('${b.pdf_file}')"
+                     style="background:transparent;border:none;color:var(--red);font-size:.9rem;cursor:pointer;padding:2px 5px"
+                     title="PDF 미리보기">
+                     <i class="bi bi-file-pdf-fill"></i></button>`
+                : `<button onclick="event.stopPropagation(); generatePdfFromList('${b.filename}', this)"
+                     style="background:transparent;border:none;color:var(--dim);font-size:.9rem;cursor:pointer;padding:2px 5px"
+                     title="PDF 생성">
+                     <i class="bi bi-file-pdf"></i></button>`;
+            return `<div class="briefing-item" onclick="loadBriefing('${b.filename}', this)">
+                <div style="flex:1;min-width:0">
+                    <div style="font-size:.8rem;font-weight:600;margin-bottom:2px">${badge} ${dateStr}</div>
+                    <div class="bi-info" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(b.generated_by || '')}</div>
+                </div>
+                <div style="display:flex;align-items:center;gap:4px;flex-shrink:0">
+                    ${pdfBtn}
+                    <i class="bi bi-chevron-right" style="color:var(--dim);font-size:.8rem"></i>
+                </div>
+            </div>`;
+        }).join('');
+    } catch(e) {}
+}
+
+async function loadBriefing(filename, el) {
+    // 선택 표시
+    document.querySelectorAll('.briefing-item').forEach(i => i.classList.remove('active'));
+    if (el) el.classList.add('active');
+
+    const viewer = document.getElementById('briefingViewer');
+    viewer.innerHTML = '<div class="empty"><i class="bi bi-hourglass"></i>로딩 중...</div>';
+
+    try {
+        const resp = await fetch(`/api/intel/briefing/${filename}`);
+        const data = await resp.json();
+        const text = data.briefing_text || '';
+
+        const metaEl = document.getElementById('briefingMeta');
+        const pdfBtns = data.has_pdf
+            ? `<button onclick="openPdfModal('${data.pdf_file}')"
+                   style="background:transparent;border:1px solid var(--red);color:var(--red);border-radius:5px;padding:2px 9px;font-size:.72rem;cursor:pointer;margin-left:8px">
+                   <i class="bi bi-eye"></i> 미리보기</button>`
+            : `<button onclick="generatePdf('${filename}', this)"
+                   style="background:transparent;border:1px solid var(--red);color:var(--red);border-radius:5px;padding:2px 8px;font-size:.72rem;cursor:pointer;margin-left:8px">
+                   <i class="bi bi-file-pdf"></i> PDF 생성</button>`;
+
+        metaEl.innerHTML = esc(data.generated_by || '') +
+            (data.generated_at ? ' · ' + new Date(data.generated_at).toLocaleString('ko-KR') : '') +
+            pdfBtns;
+
+        viewer.innerHTML = `<div class="briefing-content">${marked.parse(text)}</div>`;
+    } catch(e) {
+        viewer.innerHTML = '<div class="empty"><i class="bi bi-exclamation-circle"></i>로드 실패</div>';
+    }
+}
+
+function esc(s) {
+    const d = document.createElement('div');
+    d.textContent = s;
+    return d.innerHTML;
+}
+
+function toggleSidebar() {
+    document.getElementById('sidebar').classList.toggle('open');
+    document.getElementById('sidebarOverlay').classList.toggle('open');
+}
+function closeSidebar() {
+    document.getElementById('sidebar').classList.remove('open');
+    document.getElementById('sidebarOverlay').classList.remove('open');
+}
+
+// 반응형 그리드
+function checkLayout() {
+    const grid = document.getElementById('mainGrid');
+    if (window.innerWidth <= 1024) {
+        grid.style.gridTemplateColumns = '1fr';
+    } else {
+        grid.style.gridTemplateColumns = '320px 1fr';
+    }
+}
+window.addEventListener('resize', checkLayout);
+checkLayout();
+
+// ── 스케줄 ──────────────────────────────
+let scheduleTimes = [];
+
+async function loadSchedule() {
+    try {
+        const resp = await fetch('/api/intel/schedule');
+        const cfg = await resp.json();
+        scheduleTimes = cfg.times || ['06:00'];
+        document.getElementById('schedEnabled').checked = cfg.enabled || false;
+        document.getElementById('optTelegram').checked = cfg.send_telegram !== false;
+        document.getElementById('publicUrlInput').value = cfg.public_url || '';
+        renderTimeChips();
+        updateNextRunInfo(cfg);
+    } catch(e) {}
+}
+
+function renderTimeChips() {
+    const el = document.getElementById('timeChips');
+    el.innerHTML = scheduleTimes.map(t =>
+        `<span class="time-chip">
+            <i class="bi bi-clock" style="color:var(--orange)"></i>${t} KST
+            <span class="del" onclick="removeTime('${t}')">×</span>
+        </span>`
+    ).join('');
+}
+
+function addTime() {
+    const val = document.getElementById('timeInput').value;
+    if (!val) return;
+    if (!scheduleTimes.includes(val)) {
+        scheduleTimes.push(val);
+        scheduleTimes.sort();
+        renderTimeChips();
+        saveSchedule();
+    }
+}
+
+function removeTime(t) {
+    scheduleTimes = scheduleTimes.filter(x => x !== t);
+    renderTimeChips();
+    saveSchedule();
+}
+
+async function saveSchedule() {
+    const config = {
+        enabled: document.getElementById('schedEnabled').checked,
+        times: scheduleTimes.length ? scheduleTimes : ['06:00'],
+        modules: [],
+        send_telegram: document.getElementById('optTelegram').checked,
+        public_url: document.getElementById('publicUrlInput').value.trim(),
+    };
+    try {
+        const resp = await fetch('/api/intel/schedule', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(config)
+        });
+        const data = await resp.json();
+        updateNextRunInfo(data);
+    } catch(e) {}
+}
+
+function updateNextRunInfo(cfg) {
+    const el = document.getElementById('nextRunInfo');
+    if (!cfg.enabled || !cfg.times || !cfg.times.length) {
+        el.textContent = '';
+        return;
+    }
+    const times = cfg.times.join(', ');
+    el.innerHTML = `<i class="bi bi-check-circle-fill"></i> 매일 ${times} KST 자동 수집 예정`;
+}
+
+// ── PDF 모달 ──────────────────────────────
+function openPdfModal(pdfFile) {
+    document.getElementById('pdfFrame').src = `/api/intel/pdf/view/${pdfFile}`;
+    document.getElementById('pdfModalTitle').textContent = pdfFile;
+    document.getElementById('pdfModal').classList.add('open');
+    document.body.style.overflow = 'hidden';
+}
+
+function closePdfModal(e) {
+    if (e && e.target !== document.getElementById('pdfModal')) return;
+    document.getElementById('pdfModal').classList.remove('open');
+    document.getElementById('pdfFrame').src = '';
+    document.body.style.overflow = '';
+}
+
+document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') closePdfModal();
+});
+
+// ── PDF 생성 ──────────────────────────────
+async function generatePdfFromList(filename, btn) {
+    btn.innerHTML = '<i class="bi bi-hourglass-split"></i>';
+    btn.disabled = true;
+    const result = await _doPdfGenerate(filename);
+    if (result.success) {
+        // 아이콘 버튼 교체 후 미리보기 열기
+        const nb = document.createElement('button');
+        nb.style.cssText = 'background:transparent;border:none;color:var(--red);font-size:.9rem;cursor:pointer;padding:2px 5px';
+        nb.title = 'PDF 미리보기';
+        nb.innerHTML = '<i class="bi bi-file-pdf-fill"></i>';
+        nb.onclick = e => { e.stopPropagation(); openPdfModal(result.pdf_file); };
+        btn.replaceWith(nb);
+        openPdfModal(result.pdf_file);
+    } else {
+        btn.innerHTML = '<i class="bi bi-file-pdf"></i>';
+        btn.disabled = false;
+        alert('PDF 생성 실패: ' + (result.error || '알 수 없는 오류'));
+    }
+}
+
+async function _doPdfGenerate(filename) {
+    const resp = await fetch('/api/intel/pdf/generate', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({filename})
+    });
+    return await resp.json();
+}
+
+async function generatePdf(filename, btn) {
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<i class="bi bi-hourglass-split"></i> 생성 중...';
+    }
+    try {
+        const data = await _doPdfGenerate(filename);
+        if (data.success) {
+            // 버튼을 미리보기+다운로드 세트로 교체
+            if (btn) {
+                const wrap = document.createElement('span');
+                wrap.innerHTML =
+                    `<button onclick="openPdfModal('${data.pdf_file}')"
+                         style="background:transparent;border:1px solid var(--red);color:var(--red);border-radius:5px;padding:2px 9px;font-size:.72rem;cursor:pointer;margin-left:8px">
+                         <i class="bi bi-eye"></i> 미리보기</button>`;
+                btn.replaceWith(wrap);
+            }
+            // 미리보기 즉시 열기
+            openPdfModal(data.pdf_file);
+            // 목록도 새로고침
+            loadBriefings();
+        } else {
+            alert('PDF 생성 실패: ' + (data.error || '알 수 없는 오류'));
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="bi bi-file-pdf"></i> PDF 생성';
+            }
+        }
+    } catch(e) {
+        alert('PDF 생성 오류: ' + e.message);
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="bi bi-file-pdf"></i> PDF 생성';
+        }
+    }
+}
+
+
+// ── 전체 벡터 인덱싱 ──────────────────────
+async function indexAllBriefings() {
+    const btn = document.getElementById('indexAllBtn');
+    const statusEl = document.getElementById('indexAllStatus');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="bi bi-hourglass-split"></i> 인덱싱 중...';
+    statusEl.style.display = 'block';
+    statusEl.style.color = 'var(--orange)';
+    statusEl.textContent = '브리핑 벡터 인덱싱 중...';
+
+    try {
+        await fetch('/api/intel/index-all', {method: 'POST'});
+
+        // 완료 폴링
+        const poll = setInterval(async () => {
+            const r = await fetch('/api/intel/index-all/status').then(r => r.json());
+            if (r.status === 'running') return;
+
+            clearInterval(poll);
+            btn.disabled = false;
+            btn.innerHTML = '<i class="bi bi-database-add"></i> 전체 벡터 저장';
+
+            if (r.success) {
+                statusEl.style.color = 'var(--green)';
+                statusEl.textContent =
+                    `완료: ${r.indexed}개 신규 저장, ${r.skipped}개 스킵` +
+                    (r.errors?.length ? ` (오류 ${r.errors.length}건)` : '');
+            } else {
+                statusEl.style.color = 'var(--red)';
+                statusEl.textContent = '오류: ' + (r.error || '알 수 없음');
+            }
+            setTimeout(() => statusEl.style.display = 'none', 6000);
+        }, 1500);
+    } catch(e) {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="bi bi-database-add"></i> 전체 벡터 저장';
+        statusEl.style.color = 'var(--red)';
+        statusEl.textContent = '오류: ' + e.message;
+    }
+}
+
+// 초기 로딩
+loadLatestStatus();
+loadBriefings();
+loadSchedule();
+</script>
+</body>
+</html>

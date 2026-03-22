@@ -1,0 +1,812 @@
+<!DOCTYPE html>
+<html lang="ko" data-bs-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OSINT - 뉴스 벡터 수집기</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+    <style>
+        :root {
+            --accent: #00d4aa;
+            --accent-dim: #00a88550;
+            --accent2: #7c5cfc;
+            --accent2-dim: #7c5cfc40;
+            --bg-card: #1a1d23;
+            --bg-body: #0d1117;
+            --bg-result: #161b22;
+        }
+        body { background: var(--bg-body); font-family: 'Segoe UI', system-ui, sans-serif; color: #c9d1d9; }
+        .navbar { background: linear-gradient(135deg, #0d1117, #161b22); border-bottom: 1px solid #30363d; }
+        .navbar-brand { font-weight: 700; font-size: 1.4rem; color: var(--accent) !important; }
+        a.nav-link { color: #8b949e !important; transition: color 0.2s; }
+        a.nav-link:hover, a.nav-link.active { color: var(--accent) !important; }
+
+        .card-section {
+            background: var(--bg-card); border: 1px solid #30363d;
+            border-radius: 12px; padding: 24px; margin-bottom: 20px;
+        }
+        .section-title {
+            font-size: 1.05rem; font-weight: 700; color: #e6edf3;
+            margin-bottom: 16px; display: flex; align-items: center; gap: 8px;
+        }
+        .section-title i { color: var(--accent); }
+
+        .form-control, .form-select {
+            background: var(--bg-body); border: 1px solid #30363d;
+            color: #e6edf3; border-radius: 8px; padding: 10px 14px;
+        }
+        .form-control:focus, .form-select:focus {
+            background: var(--bg-body); border-color: var(--accent);
+            box-shadow: 0 0 0 3px var(--accent-dim); color: #e6edf3;
+        }
+        .form-check-input { background-color: #30363d; border-color: #484f58; }
+        .form-check-input:checked { background-color: var(--accent); border-color: var(--accent); }
+
+        .btn-primary-custom {
+            background: var(--accent); color: #0d1117; border: none;
+            border-radius: 8px; padding: 10px 24px; font-weight: 600;
+        }
+        .btn-primary-custom:hover { background: #00eabb; color: #0d1117; }
+        .btn-primary-custom:disabled { background: #30363d; color: #8b949e; }
+
+        .btn-accent2 {
+            background: var(--accent2); color: #fff; border: none;
+            border-radius: 8px; padding: 10px 24px; font-weight: 600;
+        }
+        .btn-accent2:hover { background: #9078ff; color: #fff; }
+
+        .btn-outline-custom {
+            background: transparent; color: var(--accent); border: 1px solid var(--accent);
+            border-radius: 8px; padding: 10px 24px; font-weight: 600;
+        }
+        .btn-outline-custom:hover { background: var(--accent-dim); color: var(--accent); }
+
+        /* Progress */
+        .progress-area { margin-top: 16px; display: none; }
+        .progress { background: #21262d; height: 8px; border-radius: 4px; }
+        .progress-bar { background: var(--accent); transition: width 0.3s; }
+        .progress-text { font-size: 0.82rem; color: #8b949e; margin-top: 6px; }
+
+        /* Stats cards */
+        .stat-card {
+            background: var(--bg-result); border: 1px solid #30363d;
+            border-radius: 10px; padding: 16px; text-align: center;
+        }
+        .stat-card .stat-value {
+            font-size: 1.8rem; font-weight: 700; color: var(--accent);
+        }
+        .stat-card .stat-label {
+            font-size: 0.78rem; color: #8b949e; margin-top: 4px;
+        }
+
+        /* Search results */
+        .result-card {
+            background: var(--bg-result); border: 1px solid #30363d;
+            border-radius: 10px; padding: 18px; margin-bottom: 12px;
+            transition: border-color 0.2s;
+        }
+        .result-card:hover { border-color: var(--accent2); }
+        .result-title {
+            font-size: 1rem; font-weight: 600; color: #e6edf3;
+            margin-bottom: 6px;
+        }
+        .result-title a { color: #e6edf3; text-decoration: none; }
+        .result-title a:hover { color: var(--accent); }
+        .result-meta {
+            font-size: 0.78rem; color: #8b949e;
+            display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 8px;
+        }
+        .result-meta span i { margin-right: 3px; }
+        .result-chunk {
+            font-size: 0.85rem; color: #b1bac4; line-height: 1.6;
+            background: #0d1117; border-radius: 6px; padding: 12px;
+            max-height: 150px; overflow-y: auto;
+        }
+        .score-badge {
+            background: var(--accent2-dim); color: var(--accent2);
+            padding: 2px 10px; border-radius: 12px;
+            font-size: 0.75rem; font-weight: 600;
+        }
+        .source-badge {
+            background: var(--accent-dim); color: var(--accent);
+            padding: 2px 8px; border-radius: 4px;
+            font-size: 0.72rem; font-weight: 600;
+        }
+        .cat-badge {
+            background: #1f6feb30; color: #58a6ff;
+            padding: 1px 6px; border-radius: 3px;
+            font-size: 0.7rem;
+        }
+
+        /* Tab style */
+        .nav-tabs { border-bottom: 1px solid #30363d; }
+        .nav-tabs .nav-link {
+            color: #8b949e; border: none; padding: 12px 20px;
+            font-weight: 500; border-bottom: 2px solid transparent;
+        }
+        .nav-tabs .nav-link:hover { color: #e6edf3; border-color: #484f58; }
+        .nav-tabs .nav-link.active {
+            color: var(--accent); background: transparent;
+            border-bottom: 2px solid var(--accent);
+        }
+
+        .empty-state {
+            text-align: center; padding: 48px 20px; color: #484f58;
+        }
+        .empty-state i { font-size: 3rem; margin-bottom: 12px; display: block; }
+
+        .footer { text-align: center; padding: 30px 0; color: #484f58; font-size: 0.82rem; }
+
+        @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.5} }
+        .pulsing { animation: pulse 1.5s ease-in-out infinite; }
+
+        /* Browse table */
+        .browse-table { width: 100%; border-collapse: separate; border-spacing: 0; }
+        .browse-table th {
+            background: #1c2128; color: #8b949e; font-size: 0.78rem;
+            font-weight: 600; padding: 10px 14px; text-align: left;
+            border-bottom: 1px solid #30363d; position: sticky; top: 0; z-index: 1;
+        }
+        .browse-table td {
+            padding: 10px 14px; border-bottom: 1px solid #21262d;
+            font-size: 0.84rem; vertical-align: top;
+        }
+        .browse-table tr:hover td { background: #161b2280; }
+        .browse-table .title-cell { max-width: 350px; }
+        .browse-table .title-cell a { color: #e6edf3; text-decoration: none; }
+        .browse-table .title-cell a:hover { color: var(--accent); }
+
+        /* Detail modal */
+        .modal-content {
+            background: var(--bg-card); border: 1px solid #30363d; border-radius: 12px;
+        }
+        .modal-header { border-bottom: 1px solid #30363d; }
+        .modal-footer { border-top: 1px solid #30363d; }
+        .chunk-box {
+            background: #0d1117; border: 1px solid #21262d; border-radius: 8px;
+            padding: 12px; margin-bottom: 10px; font-size: 0.83rem; line-height: 1.7;
+        }
+        .chunk-header {
+            font-size: 0.72rem; color: #484f58; margin-bottom: 6px;
+            display: flex; justify-content: space-between;
+        }
+        .vector-preview {
+            font-family: monospace; font-size: 0.7rem; color: #484f58;
+            background: #161b22; padding: 4px 8px; border-radius: 4px;
+            margin-top: 4px; word-break: break-all;
+        }
+        .pagination-bar {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 12px 0; font-size: 0.82rem; color: #8b949e;
+        }
+    </style>
+</head>
+<body>
+
+<nav class="navbar navbar-expand-lg">
+    <div class="container">
+        <a class="navbar-brand" href="/"><i class="bi bi-binoculars me-2"></i>OSINT Recon</a>
+        <div class="navbar-nav ms-auto flex-row gap-3">
+            <a class="nav-link" href="/"><i class="bi bi-grid me-1"></i>스캐너</a>
+            <a class="nav-link active" href="/news"><i class="bi bi-newspaper me-1"></i>뉴스 수집</a>
+        </div>
+    </div>
+</nav>
+
+<div class="container py-4">
+
+    <!-- Stats Row -->
+    <div class="row g-3 mb-4" id="statsRow">
+        <div class="col-6 col-md-3">
+            <div class="stat-card">
+                <div class="stat-value" id="statVectors">-</div>
+                <div class="stat-label">저장된 벡터</div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="stat-card">
+                <div class="stat-value" id="statStatus">-</div>
+                <div class="stat-label">DB 상태</div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="stat-card">
+                <div class="stat-value" id="statDim">384</div>
+                <div class="stat-label">벡터 차원</div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="stat-card">
+                <div class="stat-value" style="font-size:0.9rem; padding-top:10px;" id="statModel">-</div>
+                <div class="stat-label">임베딩 모델</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tabs -->
+    <ul class="nav nav-tabs mb-4" role="tablist">
+        <li class="nav-item">
+            <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tabCollect">
+                <i class="bi bi-cloud-download me-1"></i>뉴스 수집
+            </button>
+        </li>
+        <li class="nav-item">
+            <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tabSearch">
+                <i class="bi bi-search me-1"></i>시맨틱 검색
+            </button>
+        </li>
+        <li class="nav-item">
+            <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tabUrl">
+                <i class="bi bi-link-45deg me-1"></i>URL 수집
+            </button>
+        </li>
+        <li class="nav-item">
+            <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tabBrowse" onclick="loadBrowse()">
+                <i class="bi bi-database me-1"></i>벡터 DB 조회
+            </button>
+        </li>
+    </ul>
+
+    <div class="tab-content">
+
+        <!-- Tab: Collect -->
+        <div class="tab-pane fade show active" id="tabCollect">
+            <div class="card-section">
+                <div class="section-title"><i class="bi bi-rss"></i> RSS 뉴스 소스 선택</div>
+
+                <div class="row g-3 mb-3">
+                    {% for source_name, categories in sources.items() %}
+                    <div class="col-6 col-md-4 col-lg-3">
+                        <div class="form-check">
+                            <input class="form-check-input source-check" type="checkbox"
+                                   value="{{ source_name }}" id="src_{{ loop.index }}" checked>
+                            <label class="form-check-label" for="src_{{ loop.index }}">
+                                <strong>{{ source_name }}</strong>
+                                <br><small class="text-muted">{{ categories | join(', ') }}</small>
+                            </label>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+
+                <div class="row g-3 align-items-end">
+                    <div class="col-md-3">
+                        <label class="form-label" style="font-size:0.82rem; color:#8b949e;">피드당 최대 기사 수</label>
+                        <input type="number" class="form-control" id="maxPerFeed" value="10" min="1" max="50">
+                    </div>
+                    <div class="col-md-3">
+                        <div class="form-check mt-3">
+                            <input class="form-check-input" type="checkbox" id="fetchBody" checked>
+                            <label class="form-check-label" for="fetchBody">본문 전체 수집</label>
+                        </div>
+                    </div>
+                    <div class="col-md-6 text-end">
+                        <button class="btn btn-primary-custom" id="collectBtn" onclick="startCollect()">
+                            <i class="bi bi-play-fill me-1"></i>수집 시작
+                        </button>
+                        <button class="btn btn-outline-secondary ms-2" onclick="resetDB()">
+                            <i class="bi bi-trash me-1"></i>DB 초기화
+                        </button>
+                    </div>
+                </div>
+
+                <div class="progress-area" id="progressArea">
+                    <div class="d-flex justify-content-between align-items-center mb-1">
+                        <span class="progress-text pulsing" id="progressText">수집 준비 중...</span>
+                        <span class="progress-text" id="progressPct">0%</span>
+                    </div>
+                    <div class="progress">
+                        <div class="progress-bar" id="progressBar" style="width: 0%"></div>
+                    </div>
+                </div>
+
+                <div id="collectResult" class="mt-3"></div>
+            </div>
+        </div>
+
+        <!-- Tab: Search -->
+        <div class="tab-pane fade" id="tabSearch">
+            <div class="card-section">
+                <div class="section-title"><i class="bi bi-vector-pen"></i> 시맨틱 검색</div>
+                <p style="font-size:0.82rem; color:#8b949e; margin-bottom:16px;">
+                    벡터 유사도 기반으로 의미적으로 관련된 뉴스 기사를 검색합니다.
+                </p>
+
+                <div class="row g-3 align-items-end">
+                    <div class="col">
+                        <input type="text" class="form-control" id="searchQuery"
+                               placeholder="예: 사이버 보안 위협, 북한 해킹, 개인정보 유출 사건..."
+                               onkeydown="if(event.key==='Enter') doSearch()">
+                    </div>
+                    <div class="col-auto">
+                        <select class="form-select" id="searchTopK" style="width: 100px;">
+                            <option value="5">5건</option>
+                            <option value="10" selected>10건</option>
+                            <option value="20">20건</option>
+                            <option value="30">30건</option>
+                        </select>
+                    </div>
+                    <div class="col-auto">
+                        <button class="btn btn-accent2" onclick="doSearch()">
+                            <i class="bi bi-search me-1"></i>검색
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div id="searchResults">
+                <div class="empty-state">
+                    <i class="bi bi-newspaper"></i>
+                    <p>뉴스를 먼저 수집한 후 검색해 보세요.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab: URL -->
+        <div class="tab-pane fade" id="tabUrl">
+            <div class="card-section">
+                <div class="section-title"><i class="bi bi-link-45deg"></i> URL 직접 수집</div>
+                <p style="font-size:0.82rem; color:#8b949e; margin-bottom:16px;">
+                    뉴스 기사 URL을 직접 입력하여 수집하고 벡터화합니다.
+                </p>
+
+                <div class="row g-3 align-items-end">
+                    <div class="col">
+                        <input type="url" class="form-control" id="articleUrl"
+                               placeholder="https://news.example.com/article/..."
+                               onkeydown="if(event.key==='Enter') collectUrl()">
+                    </div>
+                    <div class="col-auto">
+                        <button class="btn btn-primary-custom" onclick="collectUrl()">
+                            <i class="bi bi-download me-1"></i>수집
+                        </button>
+                    </div>
+                </div>
+
+                <div id="urlResult" class="mt-3"></div>
+            </div>
+        </div>
+
+        <!-- Tab: Browse DB -->
+        <div class="tab-pane fade" id="tabBrowse">
+            <div class="card-section">
+                <div class="section-title"><i class="bi bi-database"></i> 벡터 DB 저장 내용</div>
+                <div class="row g-3 align-items-end mb-3">
+                    <div class="col-md-3">
+                        <label class="form-label" style="font-size:0.82rem; color:#8b949e;">출처 필터</label>
+                        <select class="form-select" id="browseSourceFilter" onchange="loadBrowse()">
+                            <option value="">전체</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <button class="btn btn-outline-custom btn-sm" onclick="loadBrowse()">
+                            <i class="bi bi-arrow-clockwise me-1"></i>새로고침
+                        </button>
+                    </div>
+                </div>
+
+                <div style="max-height:600px; overflow-y:auto; border-radius:8px; border:1px solid #30363d;">
+                    <table class="browse-table" id="browseTable">
+                        <thead>
+                            <tr>
+                                <th style="width:40px;">#</th>
+                                <th>제목</th>
+                                <th style="width:90px;">출처</th>
+                                <th style="width:70px;">청크</th>
+                                <th style="width:130px;">수집일시</th>
+                                <th style="width:60px;">상세</th>
+                            </tr>
+                        </thead>
+                        <tbody id="browseBody">
+                            <tr><td colspan="6" class="text-center text-muted py-4">로딩 중...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="pagination-bar">
+                    <span id="browseInfo">-</span>
+                    <div>
+                        <button class="btn btn-sm btn-outline-secondary me-1" id="browsePrev" onclick="browsePage(-1)" disabled>
+                            <i class="bi bi-chevron-left"></i> 이전
+                        </button>
+                        <button class="btn btn-sm btn-outline-secondary" id="browseNext" onclick="browsePage(1)">
+                            다음 <i class="bi bi-chevron-right"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<!-- Article Detail Modal -->
+<div class="modal fade" id="articleModal" tabindex="-1">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalTitle" style="font-size:1rem;">기사 상세</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="modalBody">
+                <div class="text-center py-4"><span class="spinner-border text-info"></span></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">닫기</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="footer">
+    OSINT News Vector Collector &mdash; Powered by Qdrant + Sentence Transformers
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+    // Load stats on page load
+    loadStats();
+
+    async function loadStats() {
+        try {
+            const resp = await fetch('/api/news/stats');
+            const data = await resp.json();
+            if (data.success) {
+                document.getElementById('statVectors').textContent = data.total_vectors.toLocaleString();
+                document.getElementById('statStatus').textContent = data.status === 'Status.GREEN' ? 'GREEN' : data.status;
+                document.getElementById('statDim').textContent = data.vector_dim;
+                document.getElementById('statModel').textContent = data.model.split('/').pop();
+            }
+        } catch (e) {}
+    }
+
+    async function startCollect() {
+        const sources = [...document.querySelectorAll('.source-check:checked')].map(el => el.value);
+        if (sources.length === 0) {
+            alert('최소 하나의 소스를 선택해주세요.');
+            return;
+        }
+
+        const maxPerFeed = parseInt(document.getElementById('maxPerFeed').value) || 10;
+        const fetchBody = document.getElementById('fetchBody').checked;
+
+        const btn = document.getElementById('collectBtn');
+        btn.disabled = true;
+
+        const progressArea = document.getElementById('progressArea');
+        progressArea.style.display = 'block';
+        document.getElementById('collectResult').innerHTML = '';
+
+        try {
+            const resp = await fetch('/api/news/collect', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ sources, max_per_feed: maxPerFeed, fetch_body: fetchBody })
+            });
+            const data = await resp.json();
+
+            if (data.job_id) {
+                pollJob(data.job_id);
+            }
+        } catch (e) {
+            document.getElementById('collectResult').innerHTML =
+                `<div class="alert alert-danger">${e.message}</div>`;
+            btn.disabled = false;
+            progressArea.style.display = 'none';
+        }
+    }
+
+    async function pollJob(jobId) {
+        const poll = async () => {
+            try {
+                const resp = await fetch(`/api/news/job/${jobId}`);
+                const job = await resp.json();
+
+                const pct = job.total > 0 ? Math.round((job.progress / job.total) * 100) : 0;
+                document.getElementById('progressBar').style.width = pct + '%';
+                document.getElementById('progressPct').textContent = pct + '%';
+                document.getElementById('progressText').textContent = job.current || '처리 중...';
+
+                if (job.status === 'done') {
+                    document.getElementById('collectBtn').disabled = false;
+                    document.getElementById('progressArea').style.display = 'none';
+                    showCollectResult(job.result);
+                    loadStats();
+                    return;
+                }
+                if (job.status === 'error') {
+                    document.getElementById('collectBtn').disabled = false;
+                    document.getElementById('progressArea').style.display = 'none';
+                    document.getElementById('collectResult').innerHTML =
+                        `<div class="alert alert-danger">오류: ${job.errors.join(', ')}</div>`;
+                    return;
+                }
+
+                setTimeout(poll, 1000);
+            } catch (e) {
+                setTimeout(poll, 2000);
+            }
+        };
+        poll();
+    }
+
+    function showCollectResult(result) {
+        if (!result) return;
+        document.getElementById('collectResult').innerHTML = `
+            <div class="card-section" style="background:var(--bg-result); border-color:#238636;">
+                <div class="section-title" style="color:#3fb950;">
+                    <i class="bi bi-check-circle-fill"></i> 수집 완료
+                </div>
+                <div class="row g-3 text-center">
+                    <div class="col-3">
+                        <div style="font-size:1.5rem; font-weight:700; color:var(--accent);">${result.total_articles}</div>
+                        <div style="font-size:0.78rem; color:#8b949e;">전체 기사</div>
+                    </div>
+                    <div class="col-3">
+                        <div style="font-size:1.5rem; font-weight:700; color:#3fb950;">${result.indexed}</div>
+                        <div style="font-size:0.78rem; color:#8b949e;">색인 완료</div>
+                    </div>
+                    <div class="col-3">
+                        <div style="font-size:1.5rem; font-weight:700; color:#d29922;">${result.skipped}</div>
+                        <div style="font-size:0.78rem; color:#8b949e;">건너뜀</div>
+                    </div>
+                    <div class="col-3">
+                        <div style="font-size:1.5rem; font-weight:700; color:var(--accent2);">${result.total_chunks}</div>
+                        <div style="font-size:0.78rem; color:#8b949e;">벡터 청크</div>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
+    async function doSearch() {
+        const query = document.getElementById('searchQuery').value.trim();
+        if (!query) return;
+
+        const topK = parseInt(document.getElementById('searchTopK').value);
+        const area = document.getElementById('searchResults');
+        area.innerHTML = '<div class="text-center py-4"><span class="spinner-border text-info"></span><br><small class="text-muted mt-2">벡터 검색 중...</small></div>';
+
+        try {
+            const resp = await fetch('/api/news/search', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ query, top_k: topK })
+            });
+            const data = await resp.json();
+
+            if (!data.success) {
+                area.innerHTML = `<div class="alert alert-danger">${data.error}</div>`;
+                return;
+            }
+
+            if (data.results.length === 0) {
+                area.innerHTML = '<div class="empty-state"><i class="bi bi-search"></i><p>검색 결과가 없습니다.</p></div>';
+                return;
+            }
+
+            area.innerHTML = `
+                <div class="mb-3" style="font-size:0.85rem; color:#8b949e;">
+                    <i class="bi bi-vector-pen me-1"></i>
+                    "<strong style="color:#e6edf3">${query}</strong>"에 대한 결과
+                    <span class="ms-2 score-badge">${data.count}건</span>
+                </div>
+                ${data.results.map((r, i) => renderSearchResult(r, i + 1)).join('')}
+            `;
+        } catch (e) {
+            area.innerHTML = `<div class="alert alert-danger">${e.message}</div>`;
+        }
+    }
+
+    function renderSearchResult(r, rank) {
+        const cats = (r.categories || []).map(c => `<span class="cat-badge">${c}</span>`).join(' ');
+        const score = (r.score * 100).toFixed(1);
+
+        return `
+            <div class="result-card">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div class="result-title">
+                        <span style="color:#484f58; font-size:0.8rem; margin-right:6px;">#${rank}</span>
+                        <a href="${r.url}" target="_blank">${r.title || '제목 없음'}</a>
+                    </div>
+                    <span class="score-badge">${score}%</span>
+                </div>
+                <div class="result-meta">
+                    <span><span class="source-badge">${r.source}</span></span>
+                    ${r.published ? `<span><i class="bi bi-calendar3"></i>${r.published}</span>` : ''}
+                    ${cats}
+                </div>
+                <div class="result-chunk">${r.chunk_text || r.summary || ''}</div>
+            </div>
+        `;
+    }
+
+    async function collectUrl() {
+        const url = document.getElementById('articleUrl').value.trim();
+        if (!url) return;
+
+        const area = document.getElementById('urlResult');
+        area.innerHTML = '<div class="text-center py-3"><span class="spinner-border spinner-border-sm text-info"></span> 수집 중...</div>';
+
+        try {
+            const resp = await fetch('/api/news/collect/url', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ url })
+            });
+            const data = await resp.json();
+
+            if (!data.success) {
+                area.innerHTML = `<div class="alert alert-danger">${data.error}</div>`;
+                return;
+            }
+
+            area.innerHTML = `
+                <div class="card-section" style="background:var(--bg-result); border-color:#238636;">
+                    <div style="color:#3fb950; font-weight:600; margin-bottom:8px;">
+                        <i class="bi bi-check-circle-fill me-1"></i>수집 완료
+                    </div>
+                    <table class="table table-sm table-borderless mb-0" style="font-size:0.85rem;">
+                        <tr><td class="text-muted" style="width:80px;">제목</td><td>${data.article.title}</td></tr>
+                        <tr><td class="text-muted">출처</td><td>${data.article.source}</td></tr>
+                        <tr><td class="text-muted">본문</td><td>${data.article.content_length.toLocaleString()} 자</td></tr>
+                        <tr><td class="text-muted">청크</td><td>${data.index.total_chunks}개 벡터 생성</td></tr>
+                    </table>
+                </div>
+            `;
+            loadStats();
+        } catch (e) {
+            area.innerHTML = `<div class="alert alert-danger">${e.message}</div>`;
+        }
+    }
+
+    async function resetDB() {
+        if (!confirm('모든 수집된 데이터가 삭제됩니다. 계속하시겠습니까?')) return;
+        try {
+            await fetch('/api/news/reset', { method: 'POST' });
+            loadStats();
+            document.getElementById('collectResult').innerHTML =
+                '<div class="alert alert-warning"><i class="bi bi-info-circle me-1"></i>데이터베이스가 초기화되었습니다.</div>';
+        } catch (e) {}
+    }
+
+    // ─── Browse DB ─────────────────────────────────────
+    let browseOffset = 0;
+    const browseLimit = 50;
+
+    async function loadBrowse() {
+        const source = document.getElementById('browseSourceFilter').value;
+        const body = document.getElementById('browseBody');
+        body.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-4"><span class="spinner-border spinner-border-sm"></span> 로딩 중...</td></tr>';
+
+        try {
+            let url = `/api/news/browse?offset=${browseOffset}&limit=${browseLimit}`;
+            if (source) url += `&source=${encodeURIComponent(source)}`;
+
+            const resp = await fetch(url);
+            const data = await resp.json();
+
+            if (!data.success || data.total_articles === 0) {
+                body.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-4"><i class="bi bi-database-x me-1"></i>저장된 기사가 없습니다.</td></tr>';
+                document.getElementById('browseInfo').textContent = '0건';
+                return;
+            }
+
+            // Update source filter dropdown (only once)
+            const filterEl = document.getElementById('browseSourceFilter');
+            if (filterEl.options.length <= 1) {
+                const sources = [...new Set(data.articles.map(a => a.source))];
+                sources.forEach(s => {
+                    const opt = document.createElement('option');
+                    opt.value = s;
+                    opt.textContent = s;
+                    filterEl.appendChild(opt);
+                });
+            }
+
+            body.innerHTML = data.articles.map((a, i) => {
+                const num = browseOffset + i + 1;
+                const cats = (a.categories || []).map(c => `<span class="cat-badge">${c}</span>`).join(' ');
+                const collected = a.collected_at ? new Date(a.collected_at).toLocaleString('ko-KR', {
+                    month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit'
+                }) : '-';
+                return `
+                    <tr>
+                        <td style="color:#484f58;">${num}</td>
+                        <td class="title-cell">
+                            <a href="${a.url}" target="_blank">${a.title || '(제목 없음)'}</a>
+                            <div class="mt-1">${cats}</div>
+                        </td>
+                        <td><span class="source-badge">${a.source}</span></td>
+                        <td><span class="badge" style="background:#1f6feb30;color:#58a6ff;">${a.total_chunks}개</span></td>
+                        <td style="color:#8b949e; font-size:0.78rem;">${collected}</td>
+                        <td>
+                            <button class="btn btn-sm btn-outline-secondary" onclick="showDetail('${a.article_id}')" title="상세 보기">
+                                <i class="bi bi-eye"></i>
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+
+            const end = Math.min(browseOffset + browseLimit, data.total_articles);
+            document.getElementById('browseInfo').textContent =
+                `${browseOffset + 1}-${end} / 총 ${data.total_articles}건`;
+            document.getElementById('browsePrev').disabled = browseOffset === 0;
+            document.getElementById('browseNext').disabled = end >= data.total_articles;
+
+        } catch (e) {
+            body.innerHTML = `<tr><td colspan="6" class="text-center text-danger py-4">${e.message}</td></tr>`;
+        }
+    }
+
+    function browsePage(dir) {
+        browseOffset = Math.max(0, browseOffset + dir * browseLimit);
+        loadBrowse();
+    }
+
+    async function showDetail(articleId) {
+        const modal = new bootstrap.Modal(document.getElementById('articleModal'));
+        document.getElementById('modalTitle').textContent = '로딩 중...';
+        document.getElementById('modalBody').innerHTML =
+            '<div class="text-center py-4"><span class="spinner-border text-info"></span></div>';
+        modal.show();
+
+        try {
+            const resp = await fetch(`/api/news/article/${articleId}`);
+            const data = await resp.json();
+
+            if (!data.success) {
+                document.getElementById('modalBody').innerHTML =
+                    `<div class="alert alert-danger">${data.error}</div>`;
+                return;
+            }
+
+            const a = data.article;
+            document.getElementById('modalTitle').textContent = a.title || '(제목 없음)';
+
+            let html = `
+                <div class="mb-3">
+                    <table class="table table-sm table-borderless" style="font-size:0.84rem;">
+                        <tr><td class="text-muted" style="width:90px;">출처</td><td><span class="source-badge">${a.source}</span></td></tr>
+                        <tr><td class="text-muted">URL</td><td><a href="${a.url}" target="_blank" style="color:var(--accent);word-break:break-all;">${a.url}</a></td></tr>
+                        <tr><td class="text-muted">발행일</td><td>${a.published || 'N/A'}</td></tr>
+                        <tr><td class="text-muted">수집일시</td><td>${a.collected_at || 'N/A'}</td></tr>
+                        <tr><td class="text-muted">카테고리</td><td>${(a.categories||[]).map(c=>'<span class="cat-badge me-1">'+c+'</span>').join('')||'N/A'}</td></tr>
+                        <tr><td class="text-muted">Article ID</td><td><code style="color:#8b949e;font-size:0.78rem;">${a.article_id}</code></td></tr>
+                        <tr><td class="text-muted">총 청크</td><td><strong style="color:var(--accent);">${a.total_chunks}개</strong></td></tr>
+                    </table>
+                </div>
+                <hr style="border-color:#30363d;">
+                <h6 style="font-size:0.88rem; color:#e6edf3; margin-bottom:12px;">
+                    <i class="bi bi-puzzle me-1" style="color:var(--accent2);"></i>벡터 청크 상세
+                </h6>
+            `;
+
+            a.chunks.forEach(chunk => {
+                const vecPreview = chunk.vector_preview && chunk.vector_preview.length > 0
+                    ? `<div class="vector-preview"><strong>벡터 (처음 8차원):</strong> [${chunk.vector_preview.map(v => v.toFixed(4)).join(', ')}...]</div>`
+                    : '';
+                html += `
+                    <div class="chunk-box">
+                        <div class="chunk-header">
+                            <span><i class="bi bi-hash"></i>청크 ${chunk.index + 1}/${a.total_chunks}</span>
+                            <span>Point ID: ${chunk.point_id}</span>
+                        </div>
+                        ${chunk.text}
+                        ${vecPreview}
+                    </div>
+                `;
+            });
+
+            document.getElementById('modalBody').innerHTML = html;
+
+        } catch (e) {
+            document.getElementById('modalBody').innerHTML =
+                `<div class="alert alert-danger">${e.message}</div>`;
+        }
+    }
+</script>
+
+</body>
+</html>

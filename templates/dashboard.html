@@ -1,0 +1,984 @@
+<!DOCTYPE html>
+<html lang="ko" data-bs-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OSINT - 수집 대시보드</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+    <style>
+        :root {
+            --accent: #7c5cfc; --accent-glow: rgba(124,92,252,0.2);
+            --green: #10b981; --orange: #f59e0b; --red: #ef4444; --blue: #3b82f6;
+            --bg: #0f0f14; --bg-card: #1a1a24; --bg-el: #22222e; --border: #2a2a3a;
+            --text: #e2e2e8; --dim: #8888a0;
+        }
+        *{box-sizing:border-box}
+        body{background:var(--bg);color:var(--text);font-family:'Inter','Segoe UI',system-ui,sans-serif;margin:0}
+
+        .sidebar{position:fixed;left:0;top:0;bottom:0;width:220px;background:var(--bg-card);border-right:1px solid var(--border);display:flex;flex-direction:column;z-index:100}
+        .sidebar-brand{padding:18px 16px;font-size:1.1rem;font-weight:700;color:var(--accent);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px}
+        .sidebar-nav{flex:1;padding:8px 0}
+        .sidebar-nav a{display:flex;align-items:center;gap:10px;padding:10px 16px;color:var(--dim);text-decoration:none;font-size:.85rem;border-left:3px solid transparent;transition:.15s}
+        .sidebar-nav a:hover{color:var(--text);background:var(--bg-el)}
+        .sidebar-nav a.active{color:var(--accent);background:var(--accent-glow);border-left-color:var(--accent)}
+        .sidebar-nav a i{font-size:1rem;width:18px;text-align:center}
+        .sidebar-footer{padding:14px 16px;border-top:1px solid var(--border);font-size:.72rem;color:var(--dim)}
+        .sidebar-footer .sv{color:var(--green);font-weight:600;font-size:.9rem}
+
+        .main{margin-left:220px;min-height:100vh}
+        .topbar{height:52px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;padding:0 24px;background:var(--bg-card)}
+        .topbar h4{margin:0;font-size:1rem;font-weight:600}
+        .content{padding:20px 24px}
+
+        /* Tabs */
+        .tab-bar{display:flex;gap:0;border-bottom:1px solid var(--border);margin-bottom:20px}
+        .tab-btn{padding:10px 20px;font-size:.85rem;color:var(--dim);cursor:pointer;border-bottom:2px solid transparent;transition:.15s;background:none;border-top:none;border-left:none;border-right:none}
+        .tab-btn:hover{color:var(--text)}
+        .tab-btn.active{color:var(--accent);border-bottom-color:var(--accent)}
+        .tab-content{display:none}
+        .tab-content.active{display:block}
+
+        /* Stats */
+        .stat-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:20px}
+        .stat-box{background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:16px}
+        .stat-box .lb{font-size:.72rem;color:var(--dim);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px}
+        .stat-box .vl{font-size:1.5rem;font-weight:700}
+        .stat-box .vl.p{color:var(--accent)} .stat-box .vl.g{color:var(--green)} .stat-box .vl.o{color:var(--orange)} .stat-box .vl.b{color:var(--blue)}
+
+        /* Cards */
+        .card-box{background:var(--bg-card);border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:16px}
+        .card-box:hover{border-color:var(--accent)}
+        .card-head{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid var(--border)}
+        .card-head .nm{font-weight:600;font-size:.92rem;display:flex;align-items:center;gap:8px}
+        .card-body-inner{padding:16px 18px}
+        .card-foot{padding:10px 18px;background:var(--bg-el);display:flex;align-items:center;justify-content:space-between;font-size:.78rem;color:var(--dim)}
+
+        /* Flow */
+        .flow{display:flex;align-items:center;gap:0;overflow-x:auto;padding:12px 0}
+        .flow-n{background:var(--bg-el);border:1px solid var(--border);border-radius:8px;padding:10px 14px;min-width:120px;text-align:center;flex-shrink:0}
+        .flow-n .fi{font-size:1.2rem;margin-bottom:2px}
+        .flow-n .fl{font-size:.7rem;color:var(--dim)} .flow-n .fv{font-size:.78rem;font-weight:600}
+        .flow-n.src{border-color:var(--blue)} .flow-n.src .fi{color:var(--blue)}
+        .flow-n.proc{border-color:var(--accent)} .flow-n.proc .fi{color:var(--accent)}
+        .flow-n.store{border-color:var(--green)} .flow-n.store .fi{color:var(--green)}
+        .flow-c{width:32px;height:2px;background:var(--border);flex-shrink:0;position:relative}
+        .flow-c::after{content:'';position:absolute;right:-3px;top:-3px;border:4px solid transparent;border-left-color:var(--border)}
+
+        /* Toggle */
+        .tgl{position:relative;width:40px;height:22px;cursor:pointer;display:inline-block}
+        .tgl input{opacity:0;width:0;height:0}
+        .tgl .tk{position:absolute;inset:0;background:var(--border);border-radius:11px;transition:.2s}
+        .tgl .tk::after{content:'';position:absolute;width:16px;height:16px;left:3px;top:3px;background:#fff;border-radius:50%;transition:.2s}
+        .tgl input:checked+.tk{background:var(--green)} .tgl input:checked+.tk::after{transform:translateX(18px)}
+
+        /* Buttons */
+        .btn-a{background:var(--accent);color:#fff;border:none;border-radius:8px;padding:7px 16px;font-weight:600;font-size:.82rem;cursor:pointer}
+        .btn-a:hover{background:#6b4de6;color:#fff}
+        .btn-o{background:transparent;border:1px solid var(--border);color:var(--dim);border-radius:6px;padding:5px 10px;font-size:.75rem;cursor:pointer;transition:.15s}
+        .btn-o:hover{border-color:var(--accent);color:var(--accent)}
+        .btn-o.danger:hover{border-color:var(--red);color:var(--red)}
+
+        /* Source table */
+        .src-table{width:100%} .src-table th{font-size:.72rem;text-transform:uppercase;color:var(--dim);padding:8px 12px;border-bottom:1px solid var(--border)}
+        .src-table td{padding:10px 12px;border-bottom:1px solid var(--border);font-size:.82rem}
+
+        /* Log */
+        .log-t{width:100%} .log-t th{font-size:.72rem;text-transform:uppercase;color:var(--dim);padding:8px 12px;border-bottom:1px solid var(--border)}
+        .log-t td{font-size:.8rem;padding:8px 12px;border-bottom:1px solid var(--border)}
+
+        .status-dot{width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:5px}
+        .status-dot.ok{background:var(--green)} .status-dot.err{background:var(--red)} .status-dot.idle{background:var(--dim)} .status-dot.run{background:var(--orange);animation:pulse 1s infinite}
+        @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+
+        .badge-s{background:var(--green);font-size:.7rem;padding:2px 8px;border-radius:4px;color:#fff}
+        .badge-e{background:var(--red);font-size:.7rem;padding:2px 8px;border-radius:4px;color:#fff}
+        .badge-r{background:var(--orange);font-size:.7rem;padding:2px 8px;border-radius:4px;color:#fff}
+
+        .empty{text-align:center;padding:40px 20px;color:var(--dim)} .empty i{font-size:2.5rem;margin-bottom:8px;display:block}
+
+        /* Collect progress */
+        .collect-bar{background:var(--bg-el);border:1px solid var(--border);border-radius:8px;padding:14px 18px;margin-bottom:16px;display:none}
+        .collect-bar .prog{height:4px;background:var(--border);border-radius:2px;overflow:hidden;margin-top:8px}
+        .collect-bar .prog-fill{height:100%;background:var(--accent);transition:width .3s}
+
+        /* Modal */
+        .modal-content{background:var(--bg-card);border:1px solid var(--border);border-radius:12px}
+        .modal-header{border-bottom-color:var(--border)} .modal-footer{border-top-color:var(--border)}
+        .form-control,.form-select{background:var(--bg);border-color:var(--border);color:var(--text);border-radius:8px;font-size:.85rem}
+        .form-control:focus,.form-select:focus{background:var(--bg);border-color:var(--accent);color:var(--text);box-shadow:0 0 0 3px var(--accent-glow)}
+        .form-check-input:checked{background-color:var(--accent);border-color:var(--accent)}
+        .form-label{font-size:.82rem;color:var(--dim)}
+
+        /* Intel module items */
+        .intel-mod-item{background:var(--bg-el);border:1px solid var(--border);border-radius:8px;padding:8px 12px;display:flex;align-items:center;gap:10px;cursor:pointer;transition:.15s;user-select:none}
+        .intel-mod-item:hover{border-color:var(--accent)}
+        .intel-mod-item.selected{border-color:var(--accent);background:var(--accent-glow)}
+
+        /* Mobile */
+        .sidebar-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:99}
+        .sidebar-overlay.open{display:block}
+        .menu-btn{display:none;background:none;border:none;color:var(--text);font-size:1.4rem;cursor:pointer;padding:4px 10px;line-height:1;flex-shrink:0}
+        .topbar-left{display:flex;align-items:center}
+        .topbar-right{display:flex;gap:6px;align-items:center;flex-shrink:0}
+
+        @media(max-width:1024px){
+            .sidebar{transform:translateX(-100%);transition:transform .25s;z-index:200}
+            .sidebar.open{transform:translateX(0)}
+            .main{margin-left:0}
+            .menu-btn{display:inline-flex;align-items:center}
+            .topbar{padding:0 10px;gap:6px}
+            .content{padding:12px 10px}
+            .stat-row{grid-template-columns:repeat(2,1fr);gap:8px}
+            .tab-bar{overflow-x:auto;flex-wrap:nowrap;-webkit-overflow-scrolling:touch}
+            .tab-btn{padding:8px 12px;font-size:.78rem;white-space:nowrap;flex-shrink:0}
+            .card-body-inner{padding:10px}
+            .btn-a{padding:6px 10px;font-size:.75rem}
+            .btn-a .btn-text{display:none}
+        }
+    </style>
+</head>
+<body>
+
+<div class="sidebar-overlay" id="sidebarOverlay" onclick="closeSidebar()"></div>
+<div class="sidebar" id="sidebar">
+    <div class="sidebar-brand"><i class="bi bi-binoculars"></i> OSINT Recon</div>
+    <nav class="sidebar-nav">
+        <a href="/" class="active"><i class="bi bi-activity"></i> 대시보드</a>
+        <a href="/browse"><i class="bi bi-database"></i> 벡터 DB</a>
+        <a href="/chat"><i class="bi bi-chat-dots"></i> AI 채팅</a>
+        <a href="/intel"><i class="bi bi-radar"></i> 인텔 브리핑</a>
+        <a href="/osint-settings"><i class="bi bi-sliders2"></i> 수집설정</a>
+    </nav>
+    <div class="sidebar-footer">
+        <div>벡터 DB</div>
+        <div class="sv" id="sbVec">-</div>
+        <div style="margin-top:2px">벡터 저장됨</div>
+        <a href="/logout" style="display:block;margin-top:10px;color:var(--dim);font-size:.72rem;text-decoration:none"><i class="bi bi-box-arrow-left me-1"></i>로그아웃</a>
+    </div>
+</div>
+
+<div class="main">
+    <div class="topbar">
+        <div class="topbar-left">
+            <button class="menu-btn" onclick="toggleSidebar()"><i class="bi bi-list"></i></button>
+            <h4 style="margin:0;font-size:1rem;font-weight:600"><i class="bi bi-activity me-2" style="color:var(--accent)"></i><span class="btn-text">수집 대시보드</span></h4>
+        </div>
+        <div class="topbar-right">
+            <button class="btn-a" onclick="showCollectNow()" title="즉시 수집"><i class="bi bi-cloud-download"></i><span class="btn-text ms-1">즉시 수집</span></button>
+            <button class="btn-a" onclick="showPipeModal()" title="파이프라인 추가"><i class="bi bi-plus-lg"></i><span class="btn-text ms-1">파이프라인</span></button>
+            <button class="btn-a" style="background:var(--blue)" onclick="showSourceModal()" title="소스 추가"><i class="bi bi-rss"></i><span class="btn-text ms-1">소스 추가</span></button>
+        </div>
+    </div>
+
+    <div class="content">
+        <!-- Stats -->
+        <div class="stat-row">
+            <div class="stat-box"><div class="lb">전체 기사</div><div class="vl o" id="stArt">-</div></div>
+            <div class="stat-box"><div class="lb">벡터 수</div><div class="vl p" id="stVec">-</div></div>
+            <div class="stat-box"><div class="lb">활성 파이프라인</div><div class="vl g" id="stPipe">-</div></div>
+            <div class="stat-box"><div class="lb">등록 소스</div><div class="vl b" id="stSrc">-</div></div>
+        </div>
+
+        <!-- Collect progress bar -->
+        <div class="collect-bar" id="collectBar">
+            <div style="display:flex;justify-content:space-between;font-size:.82rem">
+                <span><i class="bi bi-cloud-download me-1" style="color:var(--accent)"></i><span id="collectStatus">수집 중...</span></span>
+                <span id="collectPct">0%</span>
+            </div>
+            <div class="prog"><div class="prog-fill" id="collectFill" style="width:0%"></div></div>
+        </div>
+
+        <!-- Tabs -->
+        <div class="tab-bar">
+            <button class="tab-btn active" onclick="switchTab('pipelines',this)"><i class="bi bi-diagram-3 me-1"></i>파이프라인</button>
+            <button class="tab-btn" onclick="switchTab('sources',this)"><i class="bi bi-rss me-1"></i>수집 소스</button>
+            <button class="tab-btn" onclick="switchTab('logs',this)"><i class="bi bi-clock-history me-1"></i>실행 로그</button>
+            <button class="tab-btn" onclick="switchTab('telegram',this)"><i class="bi bi-telegram me-1"></i>텔레그램</button>
+        </div>
+
+        <!-- Tab: Pipelines -->
+        <div class="tab-content active" id="tab-pipelines"></div>
+
+        <!-- Tab: Sources -->
+        <div class="tab-content" id="tab-sources">
+            <!-- RSS 소스는 JS로 채워짐, 하단에 인텔리전스 소스 고정 -->
+            <div id="tab-sources-rss"></div>
+            <div id="tab-sources-intel"></div>
+        </div>
+
+        <!-- Tab: Logs -->
+        <div class="tab-content" id="tab-logs"></div>
+
+        <!-- Tab: Telegram -->
+        <div class="tab-content" id="tab-telegram">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+                <div style="font-size:.85rem;color:var(--dim)"><i class="bi bi-telegram me-1" style="color:#2AABEE"></i>수집 완료/오류 시 여러 텔레그램 채널로 동시 알림</div>
+                <button class="btn-a" onclick="showTgModal()"><i class="bi bi-plus-lg me-1"></i>채널 추가</button>
+            </div>
+            <div id="tgChannelList"></div>
+            <div id="tgResult" style="margin-top:10px;font-size:.82rem;display:none"></div>
+        </div>
+    </div>
+</div>
+
+<!-- Pipeline Modal -->
+<div class="modal fade" id="pipeModal" tabindex="-1">
+<div class="modal-dialog modal-lg">
+<div class="modal-content">
+    <div class="modal-header"><h5 class="modal-title" id="pipeModalTitle">새 파이프라인</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+    <div class="modal-body">
+        <input type="hidden" id="editPipeId">
+        <div class="mb-3"><label class="form-label">이름</label><input type="text" class="form-control" id="pipeName" placeholder="예: 연합뉴스 정치면 1시간 수집"></div>
+        <div class="row mb-3">
+            <div class="col-md-6">
+                <label class="form-label">소스 선택</label>
+                <div id="srcCbs" style="max-height:140px;overflow-y:auto;padding:6px;background:var(--bg);border-radius:8px"></div>
+                <small style="color:var(--dim)">미선택시 전체</small>
+            </div>
+            <div class="col-md-6">
+                <label class="form-label">카테고리</label>
+                <div style="max-height:140px;overflow-y:auto;padding:6px;background:var(--bg);border-radius:8px">
+                    {% for cat in ["전체","정치","경제","사회","국제","IT과학"] %}
+                    <div class="form-check"><input class="form-check-input cat-cb" type="checkbox" value="{{ cat }}" id="cc_{{ loop.index }}"><label class="form-check-label" for="cc_{{ loop.index }}" style="font-size:.82rem">{{ cat }}</label></div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        <div class="row mb-3">
+            <div class="col-md-4">
+                <label class="form-label">스케줄</label>
+                <select class="form-select" id="schedType" onchange="tglSched()">
+                    <option value="interval">반복 (분)</option><option value="cron">Cron</option>
+                </select>
+            </div>
+            <div class="col-md-4" id="intGrp">
+                <label class="form-label">주기 (분)</label>
+                <input type="number" class="form-control" id="intMin" value="60" min="5">
+            </div>
+            <div class="col-md-4" id="cronGrp" style="display:none">
+                <label class="form-label">Cron 표현식</label>
+                <input type="text" class="form-control" id="cronEx" value="0 */1 * * *">
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">피드당 최대</label>
+                <input type="number" class="form-control" id="maxFeed" value="10" min="1" max="50">
+            </div>
+        </div>
+        <div class="form-check"><input class="form-check-input" type="checkbox" id="fetchBody" checked><label class="form-check-label" for="fetchBody" style="font-size:.82rem">본문 수집 (정확하지만 느림)</label></div>
+
+        <hr style="border-color:var(--border);margin:16px 0">
+        <div class="form-check mb-2">
+            <input class="form-check-input" type="checkbox" id="includeIntel" onchange="tglIntelModules()">
+            <label class="form-check-label" for="includeIntel" style="font-size:.85rem;font-weight:600">
+                <i class="bi bi-radar" style="color:var(--accent)"></i> 인텔리전스 수집 포함
+            </label>
+        </div>
+        <div id="intelModulesWrap" style="display:none;background:var(--bg);border-radius:8px;padding:10px 12px;margin-top:4px">
+            <div style="font-size:.75rem;color:var(--dim);margin-bottom:8px">수집할 모듈 선택 (미선택 시 전체)</div>
+            <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:4px">
+                {% for mod in [("aviation","✈️ 항공"),("maritime","⚓ 해상"),("conflicts","💥 분쟁"),("thermal","🔥 열점"),("commodity","📈 원자재"),("forex","💱 환율"),("logistics","🚢 물류")] %}
+                <div class="form-check">
+                    <input class="form-check-input intel-mod-cb" type="checkbox" value="{{ mod[0] }}" id="im_{{ mod[0] }}">
+                    <label class="form-check-label" for="im_{{ mod[0] }}" style="font-size:.8rem">{{ mod[1] }}</label>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    <div class="modal-footer">
+        <button type="button" class="btn btn-sm" style="border:1px solid var(--border);color:var(--dim)" data-bs-dismiss="modal">취소</button>
+        <button type="button" class="btn-a" onclick="savePipe()">저장</button>
+    </div>
+</div></div></div>
+
+<!-- Source Modal -->
+<div class="modal fade" id="srcModal" tabindex="-1">
+<div class="modal-dialog">
+<div class="modal-content">
+    <div class="modal-header"><h5 class="modal-title">RSS 소스 추가</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+    <div class="modal-body">
+        <div class="mb-3"><label class="form-label">소스 이름</label><input type="text" class="form-control" id="newSrcName" placeholder="예: 동아일보"></div>
+        <div id="feedRows">
+            <div class="row mb-2 feed-row">
+                <div class="col-5"><input type="text" class="form-control feed-cat" placeholder="카테고리 (예: 전체)"></div>
+                <div class="col-6"><input type="text" class="form-control feed-url" placeholder="RSS URL"></div>
+                <div class="col-1"><button class="btn-o danger" onclick="this.closest('.feed-row').remove()" style="padding:6px 8px"><i class="bi bi-x"></i></button></div>
+            </div>
+        </div>
+        <button class="btn-o" onclick="addFeedRow()" style="margin-top:4px"><i class="bi bi-plus me-1"></i>피드 추가</button>
+    </div>
+    <div class="modal-footer">
+        <button type="button" class="btn btn-sm" style="border:1px solid var(--border);color:var(--dim)" data-bs-dismiss="modal">취소</button>
+        <button type="button" class="btn-a" onclick="saveSource()">추가</button>
+    </div>
+</div></div></div>
+
+<!-- Collect Now Modal -->
+<div class="modal fade" id="collectModal" tabindex="-1">
+<div class="modal-dialog">
+<div class="modal-content">
+    <div class="modal-header"><h5 class="modal-title">즉시 수집</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+    <div class="modal-body">
+        <ul class="nav nav-tabs mb-3" style="border-bottom-color:var(--border)">
+            <li class="nav-item"><a class="nav-link active" style="font-size:.82rem;color:var(--accent);border-color:var(--border)" data-bs-toggle="tab" href="#collectRss">RSS 수집</a></li>
+            <li class="nav-item"><a class="nav-link" style="font-size:.82rem;color:var(--dim);border-color:var(--border)" data-bs-toggle="tab" href="#collectIntel"><i class="bi bi-radar me-1"></i>인텔리전스</a></li>
+            <li class="nav-item"><a class="nav-link" style="font-size:.82rem;color:var(--dim);border-color:var(--border)" data-bs-toggle="tab" href="#collectUrl">URL 직접 입력</a></li>
+        </ul>
+        <div class="tab-content">
+            <div class="tab-pane show active" id="collectRss">
+                <div class="mb-3" id="collectSrcCbs" style="max-height:200px;overflow-y:auto;padding:6px;background:var(--bg);border-radius:8px"></div>
+                <div class="row">
+                    <div class="col-6"><label class="form-label">피드당 최대</label><input type="number" class="form-control" id="collectMax" value="10" min="1"></div>
+                    <div class="col-6 d-flex align-items-end"><button class="btn-a w-100" onclick="startCollect()"><i class="bi bi-cloud-download me-1"></i>수집 시작</button></div>
+                </div>
+            </div>
+            <div class="tab-pane" id="collectIntel">
+                <div style="font-size:.78rem;color:var(--dim);margin-bottom:10px">수집 후 자동으로 벡터 DB에 저장됩니다.</div>
+                <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:6px;margin-bottom:14px" id="collectIntelMods">
+                    <label class="intel-mod-item selected" data-mod="aviation"  onclick="this.classList.toggle('selected')"><span>✈️</span><div><div style="font-size:.8rem;font-weight:600">항공</div><div style="font-size:.68rem;color:var(--dim)">OpenSky</div></div></label>
+                    <label class="intel-mod-item selected" data-mod="maritime"  onclick="this.classList.toggle('selected')"><span>⚓</span><div><div style="font-size:.8rem;font-weight:600">해상</div><div style="font-size:.68rem;color:var(--dim)">AISStream</div></div></label>
+                    <label class="intel-mod-item selected" data-mod="conflicts" onclick="this.classList.toggle('selected')"><span>💥</span><div><div style="font-size:.8rem;font-weight:600">분쟁</div><div style="font-size:.68rem;color:var(--dim)">GDELT/ACLED</div></div></label>
+                    <label class="intel-mod-item selected" data-mod="thermal"   onclick="this.classList.toggle('selected')"><span>🔥</span><div><div style="font-size:.8rem;font-weight:600">열점</div><div style="font-size:.68rem;color:var(--dim)">NASA FIRMS</div></div></label>
+                    <label class="intel-mod-item selected" data-mod="commodity" onclick="this.classList.toggle('selected')"><span>📈</span><div><div style="font-size:.8rem;font-weight:600">원자재</div><div style="font-size:.68rem;color:var(--dim)">CommodityAPI</div></div></label>
+                    <label class="intel-mod-item selected" data-mod="forex"     onclick="this.classList.toggle('selected')"><span>💱</span><div><div style="font-size:.8rem;font-weight:600">환율</div><div style="font-size:.68rem;color:var(--dim)">ExchangeRate</div></div></label>
+                    <label class="intel-mod-item selected" data-mod="logistics" onclick="this.classList.toggle('selected')"><span>🚢</span><div><div style="font-size:.8rem;font-weight:600">해운물류</div><div style="font-size:.68rem;color:var(--dim)">GDELT</div></div></label>
+                </div>
+                <button class="btn-a w-100" onclick="startIntelCollect()"><i class="bi bi-radar me-1"></i>인텔 수집 시작</button>
+            </div>
+            <div class="tab-pane" id="collectUrl">
+                <div class="mb-3"><label class="form-label">기사 URL</label><input type="text" class="form-control" id="collectUrlInput" placeholder="https://news.example.com/article/..."></div>
+                <button class="btn-a w-100" onclick="collectFromUrl()"><i class="bi bi-link-45deg me-1"></i>수집</button>
+            </div>
+        </div>
+    </div>
+</div></div></div>
+
+<!-- Telegram Channel Modal -->
+<div class="modal fade" id="tgModal" tabindex="-1">
+<div class="modal-dialog">
+<div class="modal-content">
+    <div class="modal-header"><h5 class="modal-title" id="tgModalTitle">텔레그램 채널 추가</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+    <div class="modal-body">
+        <input type="hidden" id="editTgId">
+        <div class="mb-3"><label class="form-label">채널 이름</label><input type="text" class="form-control" id="tgName" placeholder="예: 보안팀 알림, 개인 알림"></div>
+        <div class="mb-3">
+            <label class="form-label">Bot Token</label>
+            <input type="text" class="form-control" id="tgToken" placeholder="123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11">
+            <small style="color:var(--dim)">@BotFather → /newbot 으로 생성</small>
+        </div>
+        <div class="mb-3">
+            <label class="form-label">Chat ID</label>
+            <input type="text" class="form-control" id="tgChatId" placeholder="-1001234567890 또는 개인 ID">
+            <small style="color:var(--dim)">@userinfobot 또는 @getidsbot 으로 확인</small>
+        </div>
+        <div class="form-check mb-2"><input class="form-check-input" type="checkbox" id="tgOnSuccess" checked><label class="form-check-label" for="tgOnSuccess" style="font-size:.82rem">수집 성공 시 알림</label></div>
+        <div class="form-check mb-2"><input class="form-check-input" type="checkbox" id="tgOnError" checked><label class="form-check-label" for="tgOnError" style="font-size:.82rem">수집 오류 시 알림</label></div>
+    </div>
+    <div class="modal-footer">
+        <button type="button" class="btn btn-sm" style="border:1px solid var(--border);color:var(--dim)" data-bs-dismiss="modal">취소</button>
+        <button type="button" class="btn-a" onclick="saveTgChannel()">저장</button>
+    </div>
+</div></div></div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+const pipeModal = new bootstrap.Modal(document.getElementById('pipeModal'));
+const srcModal = new bootstrap.Modal(document.getElementById('srcModal'));
+const collectModalEl = new bootstrap.Modal(document.getElementById('collectModal'));
+
+// ─── Tabs ──────────────────
+function switchTab(id, btn) {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('tab-'+id).classList.add('active');
+}
+
+// ─── Stats ─────────────────
+async function loadStats() {
+    try {
+        const [statsR, browseR, pipeR, srcR] = await Promise.all([
+            fetch('/api/news/stats').then(r=>r.json()),
+            fetch('/api/news/browse?limit=1').then(r=>r.json()),
+            fetch('/api/pipelines').then(r=>r.json()),
+            fetch('/api/sources/detail').then(r=>r.json()),
+        ]);
+        document.getElementById('stVec').textContent = statsR.total_vectors||0;
+        document.getElementById('sbVec').textContent = statsR.total_vectors||0;
+        document.getElementById('stArt').textContent = browseR.total_articles||0;
+        const pipes = pipeR.pipelines||[];
+        document.getElementById('stPipe').textContent = pipes.filter(p=>p.enabled).length;
+        document.getElementById('stSrc').textContent = Object.keys(srcR.sources||{}).length;
+    } catch(e){}
+}
+
+// ─── Pipelines ─────────────
+async function loadPipelines() {
+    const r = await fetch('/api/pipelines').then(r=>r.json());
+    const pipes = r.pipelines||[];
+    const el = document.getElementById('tab-pipelines');
+
+    if (!pipes.length) {
+        el.innerHTML = '<div class="empty"><i class="bi bi-diagram-3"></i><div>파이프라인이 없습니다</div><div style="font-size:.82rem;margin-top:4px">상단 "파이프라인" 버튼으로 자동 수집 워크플로우를 만드세요</div></div>';
+        return;
+    }
+
+    el.innerHTML = pipes.map(p => {
+        const src = p.sources?.length ? p.sources.join(', ') : '전체';
+        const sched = p.schedule_type==='cron' ? `Cron: ${p.cron_expression}` : `${p.interval_minutes}분`;
+        const stCls = p.last_status==='success'?'ok':p.last_status==='error'?'err':'idle';
+        const stTxt = p.last_status==='success'?'성공':p.last_status==='error'?'오류':'대기';
+        const lastR = p.last_run ? new Date(p.last_run).toLocaleString('ko-KR') : '-';
+        const nextR = p.next_run ? new Date(p.next_run).toLocaleString('ko-KR') : '-';
+        const resInfo = p.last_result ? `${p.last_result.indexed||0}건 색인` : '-';
+
+        const intelBadge = p.include_intel
+            ? `<span style="font-size:.68rem;background:rgba(124,92,252,.2);color:var(--accent);border-radius:4px;padding:1px 6px;margin-left:4px"><i class="bi bi-radar"></i> 인텔</span>`
+            : '';
+
+        return `<div class="card-box">
+            <div class="card-head">
+                <div class="nm"><i class="bi bi-diagram-3" style="color:var(--accent)"></i>${esc(p.name)}${intelBadge}<span style="font-size:.7rem;color:var(--dim);font-weight:400">${sched}</span></div>
+                <label class="tgl" title="${p.enabled?'활성':'비활성'}"><input type="checkbox" ${p.enabled?'checked':''} onchange="togglePipe('${p.id}')"><span class="tk"></span></label>
+            </div>
+            <div class="card-body-inner">
+                <div class="flow">
+                    <div class="flow-n src"><div class="fi"><i class="bi bi-newspaper"></i></div><div class="fl">소스</div><div class="fv">${esc(src)}</div></div>
+                    <div class="flow-c"></div>
+                    <div class="flow-n"><div class="fi"><i class="bi bi-clock"></i></div><div class="fl">스케줄</div><div class="fv">${sched}</div></div>
+                    <div class="flow-c"></div>
+                    <div class="flow-n proc"><div class="fi"><i class="bi bi-braces"></i></div><div class="fl">크롤링</div><div class="fv">최대 ${p.max_per_feed}건</div></div>
+                    <div class="flow-c"></div>
+                    <div class="flow-n proc"><div class="fi"><i class="bi bi-cpu"></i></div><div class="fl">임베딩</div><div class="fv">MiniLM-L12</div></div>
+                    <div class="flow-c"></div>
+                    <div class="flow-n store"><div class="fi"><i class="bi bi-database"></i></div><div class="fl">Qdrant</div><div class="fv">${resInfo}</div></div>
+                </div>
+            </div>
+            <div class="card-foot">
+                <div><span class="status-dot ${stCls}"></span>${stTxt} &middot; 최근: ${lastR} &middot; 다음: ${nextR}</div>
+                <div style="display:flex;gap:4px">
+                    <button class="btn-o" onclick="runPipeNow('${p.id}')" title="즉시 실행"><i class="bi bi-play-fill"></i></button>
+                    <button class="btn-o" onclick='editPipe(${JSON.stringify(p)})' title="수정"><i class="bi bi-pencil"></i></button>
+                    <button class="btn-o danger" onclick="delPipe('${p.id}')" title="삭제"><i class="bi bi-trash"></i></button>
+                </div>
+            </div>
+        </div>`;
+    }).join('');
+}
+
+function tglSched() {
+    const t = document.getElementById('schedType').value;
+    document.getElementById('intGrp').style.display = t==='interval'?'':'none';
+    document.getElementById('cronGrp').style.display = t==='cron'?'':'none';
+}
+
+async function showPipeModal(pipe) {
+    document.getElementById('pipeModalTitle').textContent = pipe ? '파이프라인 수정' : '새 파이프라인';
+    document.getElementById('editPipeId').value = pipe?.id || '';
+    document.getElementById('pipeName').value = pipe?.name || '';
+
+    // 동적으로 소스 체크박스 로드
+    const srcR = await fetch('/api/sources/detail').then(r=>r.json());
+    const srcNames = Object.keys(srcR.sources||{});
+    document.getElementById('srcCbs').innerHTML = srcNames.map((s,i) =>
+        `<div class="form-check"><input class="form-check-input src-cb" type="checkbox" value="${esc(s)}" id="sc_${i}" ${pipe?.sources?.includes(s)?'checked':''}><label class="form-check-label" for="sc_${i}" style="font-size:.82rem">${esc(s)}</label></div>`
+    ).join('');
+
+    document.querySelectorAll('.cat-cb').forEach(c => c.checked = pipe?.categories?.includes(c.value));
+    document.getElementById('schedType').value = pipe?.schedule_type || 'interval';
+    document.getElementById('intMin').value = pipe?.interval_minutes || 60;
+    document.getElementById('cronEx').value = pipe?.cron_expression || '0 */1 * * *';
+    document.getElementById('maxFeed').value = pipe?.max_per_feed || 10;
+    document.getElementById('fetchBody').checked = pipe?.fetch_body !== false;
+    document.getElementById('includeIntel').checked = pipe?.include_intel || false;
+    document.querySelectorAll('.intel-mod-cb').forEach(c => {
+        c.checked = pipe?.intel_modules?.includes(c.value) || false;
+    });
+    tglSched();
+    tglIntelModules();
+    pipeModal.show();
+}
+
+function tglIntelModules() {
+    document.getElementById('intelModulesWrap').style.display =
+        document.getElementById('includeIntel').checked ? '' : 'none';
+}
+
+function editPipe(p) { showPipeModal(p); }
+
+async function savePipe() {
+    const id = document.getElementById('editPipeId').value;
+    const data = {
+        name: document.getElementById('pipeName').value || '새 파이프라인',
+        sources: [...document.querySelectorAll('.src-cb:checked')].map(c=>c.value),
+        categories: [...document.querySelectorAll('.cat-cb:checked')].map(c=>c.value),
+        schedule_type: document.getElementById('schedType').value,
+        interval_minutes: parseInt(document.getElementById('intMin').value)||60,
+        cron_expression: document.getElementById('cronEx').value,
+        max_per_feed: parseInt(document.getElementById('maxFeed').value)||10,
+        fetch_body: document.getElementById('fetchBody').checked,
+        include_intel: document.getElementById('includeIntel').checked,
+        intel_modules: [...document.querySelectorAll('.intel-mod-cb:checked')].map(c=>c.value),
+        enabled: true,
+    };
+    await fetch(id?`/api/pipelines/${id}`:'/api/pipelines', {method:id?'PUT':'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});
+    pipeModal.hide();
+    loadAll();
+}
+
+async function togglePipe(id) { await fetch(`/api/pipelines/${id}/toggle`,{method:'POST'}); loadAll(); }
+async function runPipeNow(id) { await fetch(`/api/pipelines/${id}/run`,{method:'POST'}); loadAll(); }
+async function delPipe(id) { if(!confirm('삭제하시겠습니까?'))return; await fetch(`/api/pipelines/${id}`,{method:'DELETE'}); loadAll(); }
+
+// ─── Sources ───────────────
+async function loadSources() {
+    const r = await fetch('/api/sources/detail').then(r=>r.json());
+    const sources = r.sources || {};
+    const el = document.getElementById('tab-sources-rss');
+
+    if (!Object.keys(sources).length) {
+        el.innerHTML = '<div class="empty"><i class="bi bi-rss"></i><div>등록된 RSS 소스가 없습니다</div></div>';
+    } else {
+        let html = '<div style="font-size:.78rem;color:var(--dim);margin-bottom:10px;text-transform:uppercase;letter-spacing:.5px"><i class="bi bi-rss me-1" style="color:var(--orange)"></i>RSS 뉴스 소스</div>';
+        html += '<div class="card-box"><table class="src-table"><thead><tr><th>소스명</th><th>카테고리</th><th>피드 수</th><th>RSS URL</th><th></th></tr></thead><tbody>';
+        for (const [name, feeds] of Object.entries(sources)) {
+            const cats = Object.keys(feeds);
+            const firstUrl = Object.values(feeds)[0] || '';
+            html += `<tr>
+                <td><strong>${esc(name)}</strong></td>
+                <td>${cats.map(c=>`<span style="background:var(--accent-glow);color:var(--accent);padding:1px 6px;border-radius:3px;font-size:.72rem;margin-right:3px">${esc(c)}</span>`).join('')}</td>
+                <td>${cats.length}</td>
+                <td style="font-size:.72rem;color:var(--dim);max-width:250px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(firstUrl)}">${esc(firstUrl)}</td>
+                <td><button class="btn-o danger" onclick="removeSource('${esc(name)}')" title="삭제"><i class="bi bi-trash"></i></button></td>
+            </tr>`;
+        }
+        html += '</tbody></table></div>';
+        el.innerHTML = html;
+    }
+
+    // KSPD-OSINT 인텔리전스 소스 카드
+    loadIntelSourceCard();
+}
+
+const INTEL_MODULES = [
+    {id:'aviation',  icon:'✈️', name:'항공',    sub:'OpenSky API',    color:'var(--blue)'},
+    {id:'maritime',  icon:'⚓', name:'해상',    sub:'AISStream',      color:'var(--accent)'},
+    {id:'conflicts', icon:'💥', name:'분쟁',    sub:'GDELT / ACLED',  color:'var(--red)'},
+    {id:'thermal',   icon:'🔥', name:'열점',    sub:'NASA FIRMS',     color:'var(--orange)'},
+    {id:'commodity', icon:'📈', name:'원자재',  sub:'CommodityAPI',   color:'var(--green)'},
+    {id:'forex',     icon:'💱', name:'환율',    sub:'ExchangeRate',   color:'var(--green)'},
+    {id:'logistics', icon:'🚢', name:'해운물류', sub:'GDELT',         color:'var(--blue)'},
+];
+
+let _intelCollecting = false;
+let _intelPollTimer = null;
+
+async function loadIntelSourceCard() {
+    const el = document.getElementById('tab-sources-intel');
+    let status = {last_run:null, aviation_mil:0, maritime_naval:0, conflicts_events:0, thermal_hotspots:0, alerts:0};
+    try { status = await fetch('/api/intel/status').then(r=>r.json()); } catch(e){}
+
+    const lastRun = status.last_run
+        ? new Date(status.last_run+'Z').toLocaleString('ko-KR')
+        : '없음';
+
+    const modCards = INTEL_MODULES.map(m => `
+        <label class="intel-mod-item" data-mod="${m.id}" onclick="toggleIntelMod(this)">
+            <span style="font-size:1.2rem">${m.icon}</span>
+            <div>
+                <div style="font-size:.8rem;font-weight:600">${m.name}</div>
+                <div style="font-size:.68rem;color:var(--dim)">${m.sub}</div>
+            </div>
+            <input type="checkbox" checked style="display:none">
+        </label>`).join('');
+
+    el.innerHTML = `
+    <div style="font-size:.78rem;color:var(--dim);margin:20px 0 10px;text-transform:uppercase;letter-spacing:.5px"><i class="bi bi-radar me-1" style="color:var(--accent)"></i>인텔리전스 소스 (KSPD OSINT)</div>
+    <div class="card-box">
+        <div class="card-head">
+            <div class="nm"><i class="bi bi-radar" style="color:var(--accent)"></i>KSPD OSINT 수집 엔진</div>
+            <div style="font-size:.72rem;color:var(--dim)">마지막 수집: ${lastRun}</div>
+        </div>
+        <div class="card-body-inner">
+            <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px;margin-bottom:14px" id="intelModGrid">
+                ${modCards}
+            </div>
+            <div id="intelSrcProgress" style="display:none;margin-bottom:12px">
+                <div style="display:flex;justify-content:space-between;font-size:.8rem;margin-bottom:4px">
+                    <span><span class="status-dot run"></span><span id="intelSrcStatus">수집 중...</span></span>
+                </div>
+                <div class="prog"><div class="prog-fill" id="intelSrcFill" style="width:30%"></div></div>
+            </div>
+            <div style="display:flex;gap:8px;align-items:center">
+                <button class="btn-a" id="intelSrcRunBtn" onclick="runIntelFromDashboard()">
+                    <i class="bi bi-play-fill me-1"></i>인텔 수집 + 벡터 저장
+                </button>
+                <a href="/intel" style="color:var(--dim);font-size:.78rem;text-decoration:none">
+                    <i class="bi bi-arrow-right me-1"></i>인텔 브리핑 페이지
+                </a>
+            </div>
+        </div>
+        <div class="card-foot">
+            <div>
+                <span style="margin-right:14px">✈️ 군용기 <strong>${status.aviation_mil||0}</strong></span>
+                <span style="margin-right:14px">⚓ 군함 <strong>${status.maritime_naval||0}</strong></span>
+                <span style="margin-right:14px">💥 분쟁 <strong>${status.conflicts_events||0}</strong></span>
+                <span style="margin-right:14px">🔥 열점 <strong>${status.thermal_hotspots||0}</strong></span>
+                <span>⚠️ 알림 <strong>${status.alerts||0}</strong></span>
+            </div>
+            <a href="/intel" class="btn-o"><i class="bi bi-file-text me-1"></i>브리핑 보기</a>
+        </div>
+    </div>`;
+
+    // 선택된 모듈 스타일
+    document.querySelectorAll('.intel-mod-item').forEach(el => el.classList.add('selected'));
+}
+
+function toggleIntelMod(el) {
+    el.classList.toggle('selected');
+}
+
+async function runIntelFromDashboard() {
+    if (_intelCollecting) return;
+    const selected = [...document.querySelectorAll('.intel-mod-item.selected')].map(el => el.dataset.mod);
+    const modules = selected.length === INTEL_MODULES.length ? [] : selected;
+
+    _intelCollecting = true;
+    const btn = document.getElementById('intelSrcRunBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="bi bi-hourglass-split me-1"></i>수집 중...';
+    document.getElementById('intelSrcProgress').style.display = 'block';
+
+    try {
+        const r = await fetch('/api/intel/run', {
+            method:'POST', headers:{'Content-Type':'application/json'},
+            body: JSON.stringify({modules})
+        }).then(r=>r.json());
+
+        _pollIntelJob(r.job_id);
+    } catch(e) {
+        _intelCollecting = false;
+        btn.disabled = false;
+        btn.innerHTML = '<i class="bi bi-play-fill me-1"></i>인텔 수집 + 벡터 저장';
+        document.getElementById('intelSrcProgress').style.display = 'none';
+    }
+}
+
+function _pollIntelJob(jobId) {
+    if (_intelPollTimer) clearInterval(_intelPollTimer);
+    _intelPollTimer = setInterval(async () => {
+        const job = await fetch(`/api/intel/job/${jobId}`).then(r=>r.json());
+        document.getElementById('intelSrcStatus').textContent = job.current || '처리 중...';
+
+        if (job.status === 'done' || job.status === 'error') {
+            clearInterval(_intelPollTimer);
+            _intelCollecting = false;
+            const btn = document.getElementById('intelSrcRunBtn');
+            btn.disabled = false;
+            btn.innerHTML = '<i class="bi bi-play-fill me-1"></i>인텔 수집 + 벡터 저장';
+            document.getElementById('intelSrcProgress').style.display = 'none';
+
+            if (job.status === 'done') {
+                const vec = job.vector_result;
+                const msg = vec ? `완료! ${vec.total_chunks||0}청크 저장됨` : '수집 완료';
+                document.getElementById('intelSrcStatus').textContent = msg;
+            } else {
+                document.getElementById('intelSrcStatus').textContent = '오류: ' + (job.errors?.[0]||'');
+            }
+            loadStats();
+            loadIntelSourceCard();
+        }
+    }, 2000);
+}
+
+function showSourceModal() { srcModal.show(); }
+
+function addFeedRow() {
+    const row = document.createElement('div');
+    row.className = 'row mb-2 feed-row';
+    row.innerHTML = `<div class="col-5"><input type="text" class="form-control feed-cat" placeholder="카테고리"></div><div class="col-6"><input type="text" class="form-control feed-url" placeholder="RSS URL"></div><div class="col-1"><button class="btn-o danger" onclick="this.closest('.feed-row').remove()" style="padding:6px 8px"><i class="bi bi-x"></i></button></div>`;
+    document.getElementById('feedRows').appendChild(row);
+}
+
+async function saveSource() {
+    const name = document.getElementById('newSrcName').value.trim();
+    const feeds = {};
+    document.querySelectorAll('.feed-row').forEach(row => {
+        const cat = row.querySelector('.feed-cat').value.trim();
+        const url = row.querySelector('.feed-url').value.trim();
+        if (cat && url) feeds[cat] = url;
+    });
+    if (!name || !Object.keys(feeds).length) { alert('이름과 피드를 입력하세요'); return; }
+    await fetch('/api/sources/add', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,feeds})});
+    srcModal.hide();
+    document.getElementById('newSrcName').value = '';
+    loadAll();
+    // Also refresh source checkboxes in pipeline modal
+    location.reload();
+}
+
+async function removeSource(name) {
+    if (!confirm(`'${name}' 소스를 삭제하시겠습니까?`)) return;
+    await fetch('/api/sources/remove', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name})});
+    loadAll();
+}
+
+// ─── Logs ──────────────────
+async function loadLogs() {
+    const r = await fetch('/api/pipelines/logs?limit=30').then(r=>r.json());
+    const logs = r.logs||[];
+    const el = document.getElementById('tab-logs');
+
+    if (!logs.length) {
+        el.innerHTML = '<div class="empty"><i class="bi bi-clock-history"></i><div>실행 기록이 없습니다</div></div>';
+        return;
+    }
+
+    let html = '<div class="card-box" style="overflow-x:auto"><table class="log-t"><thead><tr><th>파이프라인</th><th>상태</th><th>시작</th><th>종료</th><th>결과</th></tr></thead><tbody>';
+    logs.forEach(l => {
+        const badge = l.status==='success'?'<span class="badge-s">성공</span>':l.status==='error'?'<span class="badge-e">오류</span>':'<span class="badge-r">실행중</span>';
+        const st = l.started_at ? new Date(l.started_at).toLocaleString('ko-KR') : '-';
+        const ft = l.finished_at ? new Date(l.finished_at).toLocaleString('ko-KR') : '-';
+        const res = l.result ? `${l.result.indexed||0}건 색인, ${l.result.total_chunks||0}청크` : (l.error||'-');
+        html += `<tr><td>${esc(l.pipeline_name||'-')}</td><td>${badge}</td><td>${st}</td><td>${ft}</td><td style="font-size:.75rem">${esc(res)}</td></tr>`;
+    });
+    html += '</tbody></table></div>';
+    el.innerHTML = html;
+}
+
+// ─── Collect Now ───────────
+async function showCollectNow() {
+    const r = await fetch('/api/sources/detail').then(r=>r.json());
+    const sources = r.sources||{};
+    const el = document.getElementById('collectSrcCbs');
+    el.innerHTML = Object.keys(sources).map((s,i) =>
+        `<div class="form-check"><input class="form-check-input collect-src" type="checkbox" value="${esc(s)}" id="cs_${i}" checked><label class="form-check-label" for="cs_${i}" style="font-size:.82rem">${esc(s)}</label></div>`
+    ).join('');
+    collectModalEl.show();
+}
+
+let _pollTimer = null;
+
+async function startIntelCollect() {
+    const selected = [...document.querySelectorAll('#collectIntelMods .intel-mod-item.selected')].map(el => el.dataset.mod);
+    const modules = selected.length === 7 ? [] : selected;
+    collectModalEl.hide();
+
+    const r = await fetch('/api/intel/run', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({modules})
+    }).then(r=>r.json());
+
+    if (r.job_id) {
+        document.getElementById('collectBar').style.display = 'block';
+        document.getElementById('collectStatus').textContent = '인텔 수집 시작...';
+        _pollIntelJobForBar(r.job_id);
+    }
+}
+
+function _pollIntelJobForBar(jobId) {
+    _pollTimer = setInterval(async () => {
+        const job = await fetch(`/api/intel/job/${jobId}`).then(r=>r.json());
+        const bar = document.getElementById('collectBar');
+        const fill = document.getElementById('collectFill');
+        const status = document.getElementById('collectStatus');
+
+        status.textContent = job.current || '인텔 수집 중...';
+        fill.style.width = job.status === 'done' ? '100%' : '60%';
+
+        if (job.status === 'done') {
+            clearInterval(_pollTimer);
+            const vec = job.vector_result;
+            status.textContent = `완료! ${vec?.total_chunks||0}청크 저장됨`;
+            fill.style.width = '100%';
+            setTimeout(() => { bar.style.display='none'; fill.style.width='0%'; }, 5000);
+            loadStats();
+        } else if (job.status === 'error') {
+            clearInterval(_pollTimer);
+            status.textContent = '오류: ' + (job.errors?.[0]||'');
+            fill.style.background = 'var(--red)';
+            setTimeout(() => { bar.style.display='none'; fill.style.background='var(--accent)'; }, 5000);
+        }
+    }, 2000);
+}
+
+async function startCollect() {
+    const sources = [...document.querySelectorAll('.collect-src:checked')].map(c=>c.value);
+    const max = parseInt(document.getElementById('collectMax').value)||10;
+    collectModalEl.hide();
+
+    const r = await fetch('/api/news/collect', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sources:sources.length?sources:null,max_per_feed:max,fetch_body:true})}).then(r=>r.json());
+
+    if (r.job_id) {
+        document.getElementById('collectBar').style.display = 'block';
+        pollJob(r.job_id);
+    }
+}
+
+function pollJob(jobId) {
+    _pollTimer = setInterval(async () => {
+        const r = await fetch(`/api/news/job/${jobId}`).then(r=>r.json());
+        const bar = document.getElementById('collectBar');
+        const fill = document.getElementById('collectFill');
+        const status = document.getElementById('collectStatus');
+        const pct = document.getElementById('collectPct');
+
+        if (r.status === 'running') {
+            const p = r.total > 0 ? Math.round(r.progress / r.total * 100) : 0;
+            fill.style.width = p + '%';
+            pct.textContent = p + '%';
+            status.textContent = r.current || '수집 중...';
+        } else {
+            clearInterval(_pollTimer);
+            if (r.status === 'done') {
+                const res = r.result || {};
+                status.textContent = `완료! ${res.indexed||0}건 색인, ${res.total_chunks||0}청크`;
+                fill.style.width = '100%';
+                pct.textContent = '100%';
+            } else {
+                status.textContent = '오류: ' + (r.errors?.[0] || '');
+                fill.style.background = 'var(--red)';
+            }
+            setTimeout(() => { bar.style.display = 'none'; fill.style.width='0%'; fill.style.background='var(--accent)'; }, 5000);
+            loadStats();
+        }
+    }, 1500);
+}
+
+async function collectFromUrl() {
+    const url = document.getElementById('collectUrlInput').value.trim();
+    if (!url) return;
+    collectModalEl.hide();
+
+    const r = await fetch('/api/news/collect/url', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({url})}).then(r=>r.json());
+    if (r.success) {
+        alert(`수집 완료: ${r.article.title}\n색인: ${r.index.indexed}건`);
+        loadStats();
+    } else {
+        alert('오류: ' + r.error);
+    }
+}
+
+// ─── Helpers ───────────────
+function esc(s) { if(!s)return''; const d=document.createElement('div'); d.textContent=s; return d.innerHTML; }
+
+// ─── Telegram (multi-channel) ──────────────
+const tgModal = new bootstrap.Modal(document.getElementById('tgModal'));
+
+async function loadTelegram() {
+    try {
+        const r = await fetch('/api/telegram/channels').then(r=>r.json());
+        const channels = r.channels || [];
+        const el = document.getElementById('tgChannelList');
+
+        if (!channels.length) {
+            el.innerHTML = '<div class="empty" style="padding:30px"><i class="bi bi-telegram"></i><div>등록된 채널이 없습니다</div><div style="font-size:.82rem;margin-top:4px">여러 팀/개인 채널에 동시 알림을 보낼 수 있습니다</div></div>';
+            return;
+        }
+
+        el.innerHTML = channels.map(ch => {
+            const stDot = ch.enabled ? 'ok' : 'idle';
+            const stTxt = ch.enabled ? '활성' : '비활성';
+            const opts = [];
+            if (ch.notify_on_success) opts.push('성공');
+            if (ch.notify_on_error) opts.push('오류');
+
+            return `<div class="card-box" style="margin-bottom:10px">
+                <div class="card-head">
+                    <div class="nm">
+                        <i class="bi bi-telegram" style="color:#2AABEE"></i>
+                        ${esc(ch.name)}
+                        <span style="font-size:.7rem;color:var(--dim);font-weight:400">Chat: ${esc(ch.chat_id)}</span>
+                    </div>
+                    <label class="tgl"><input type="checkbox" ${ch.enabled?'checked':''} onchange="toggleTgChannel('${ch.id}')"><span class="tk"></span></label>
+                </div>
+                <div class="card-foot">
+                    <div>
+                        <span class="status-dot ${stDot}"></span>${stTxt}
+                        &middot; Token: ${esc(ch.bot_token_masked||'***')}
+                        &middot; 알림: ${opts.join(', ')||'없음'}
+                    </div>
+                    <div style="display:flex;gap:4px">
+                        <button class="btn-o" onclick="testTgChannel('${ch.id}')" title="테스트"><i class="bi bi-send"></i></button>
+                        <button class="btn-o" onclick='editTgChannel(${JSON.stringify(ch)})' title="수정"><i class="bi bi-pencil"></i></button>
+                        <button class="btn-o danger" onclick="delTgChannel('${ch.id}')" title="삭제"><i class="bi bi-trash"></i></button>
+                    </div>
+                </div>
+            </div>`;
+        }).join('');
+    } catch(e) {}
+}
+
+function showTgModal(ch) {
+    document.getElementById('tgModalTitle').textContent = ch ? '채널 수정' : '텔레그램 채널 추가';
+    document.getElementById('editTgId').value = ch?.id || '';
+    document.getElementById('tgName').value = ch?.name || '';
+    document.getElementById('tgToken').value = ch?.bot_token || '';
+    document.getElementById('tgChatId').value = ch?.chat_id || '';
+    document.getElementById('tgOnSuccess').checked = ch?.notify_on_success !== false;
+    document.getElementById('tgOnError').checked = ch?.notify_on_error !== false;
+    tgModal.show();
+}
+
+function editTgChannel(ch) { showTgModal(ch); }
+
+async function saveTgChannel() {
+    const id = document.getElementById('editTgId').value;
+    const data = {
+        name: document.getElementById('tgName').value.trim() || '새 채널',
+        bot_token: document.getElementById('tgToken').value.trim(),
+        chat_id: document.getElementById('tgChatId').value.trim(),
+        enabled: true,
+        notify_on_success: document.getElementById('tgOnSuccess').checked,
+        notify_on_error: document.getElementById('tgOnError').checked,
+    };
+    if (!data.bot_token || !data.chat_id) { alert('Bot Token과 Chat ID를 입력하세요'); return; }
+
+    const url = id ? `/api/telegram/channels/${id}` : '/api/telegram/channels';
+    const method = id ? 'PUT' : 'POST';
+    await fetch(url, {method, headers:{'Content-Type':'application/json'}, body:JSON.stringify(data)});
+    tgModal.hide();
+    loadTelegram();
+}
+
+async function toggleTgChannel(id) {
+    await fetch(`/api/telegram/channels/${id}/toggle`, {method:'POST'});
+    loadTelegram();
+}
+
+async function testTgChannel(id) {
+    showTgResult(null, '전송 중...');
+    const r = await fetch(`/api/telegram/channels/${id}/test`, {method:'POST'}).then(r=>r.json());
+    showTgResult(r.success, r.success ? `'${r.channel}' 전송 완료` : r.error);
+}
+
+async function delTgChannel(id) {
+    if (!confirm('이 채널을 삭제하시겠습니까?')) return;
+    await fetch(`/api/telegram/channels/${id}`, {method:'DELETE'});
+    loadTelegram();
+}
+
+function showTgResult(success, msg) {
+    const el = document.getElementById('tgResult');
+    el.style.display = 'block';
+    el.style.color = success===null ? 'var(--dim)' : success ? 'var(--green)' : 'var(--red)';
+    el.textContent = msg;
+    if (success !== null) setTimeout(() => el.style.display = 'none', 4000);
+}
+
+function loadAll() { loadStats(); loadPipelines(); loadSources(); loadLogs(); loadTelegram(); }
+loadAll();
+setInterval(() => { loadStats(); loadPipelines(); loadLogs(); }, 15000);
+
+function toggleSidebar() {
+    document.getElementById('sidebar').classList.toggle('open');
+    document.getElementById('sidebarOverlay').classList.toggle('open');
+}
+function closeSidebar() {
+    document.getElementById('sidebar').classList.remove('open');
+    document.getElementById('sidebarOverlay').classList.remove('open');
+}
+</script>
+</body>
+</html>

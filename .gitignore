@@ -1,0 +1,51 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+*.egg
+
+# 환경
+.env
+.venv
+venv/
+env/
+
+# 민감한 설정 파일 (API 키 포함)
+telegram_config.json
+intel_schedule.json
+scheduler_config.json
+kspd-osint-py/kspd-osint-py/config/settings.py
+
+# kspd-osint-py 불필요 파일
+kspd-osint-py/kspd-osint-py/output/
+kspd-osint-py/kspd-osint-py/.claude/
+kspd-osint-py/**/__pycache__/
+
+# 로그
+*.log
+app_server.log
+flask_out.log
+server.log
+ngrok.log
+
+# 데이터 (로컬 전용)
+qdrant_data/
+intel_briefings/
+intel_pdf/
+scheduler_log.json
+
+# 테스트 출력
+test_out.pdf
+*.tmp
+
+# Claude 메모리
+.claude/
+
+# IDE
+.vscode/
+.idea/

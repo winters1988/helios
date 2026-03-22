@@ -1,0 +1,723 @@
+<!DOCTYPE html>
+<html lang="ko" data-bs-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OSINT 수집 설정</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+    <style>
+        :root {
+            --accent:#7c5cfc;--accent-glow:rgba(124,92,252,.2);
+            --green:#10b981;--orange:#f59e0b;--red:#ef4444;--blue:#3b82f6;
+            --bg:#0f0f14;--bg-card:#1a1a24;--bg-el:#22222e;--border:#2a2a3a;
+            --text:#e2e2e8;--dim:#8888a0;
+        }
+        *{box-sizing:border-box}
+        body{background:var(--bg);color:var(--text);font-family:'Inter','Segoe UI',system-ui,sans-serif;margin:0}
+
+        .sidebar{position:fixed;left:0;top:0;bottom:0;width:220px;background:var(--bg-card);border-right:1px solid var(--border);display:flex;flex-direction:column;z-index:100}
+        .sidebar-brand{padding:18px 16px;font-size:1.1rem;font-weight:700;color:var(--accent);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px}
+        .sidebar-nav{flex:1;padding:8px 0}
+        .sidebar-nav a{display:flex;align-items:center;gap:10px;padding:10px 16px;color:var(--dim);text-decoration:none;font-size:.85rem;border-left:3px solid transparent;transition:.15s}
+        .sidebar-nav a:hover{color:var(--text);background:var(--bg-el)}
+        .sidebar-nav a.active{color:var(--accent);background:var(--accent-glow);border-left-color:var(--accent)}
+        .sidebar-nav a i{font-size:1rem;width:18px;text-align:center}
+        .sidebar-footer{padding:14px 16px;border-top:1px solid var(--border);font-size:.72rem;color:var(--dim)}
+
+        .main{margin-left:220px;min-height:100vh}
+        .topbar{height:52px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;padding:0 24px;background:var(--bg-card)}
+        .topbar h4{margin:0;font-size:1rem;font-weight:600}
+        .content{padding:20px 24px;max-width:1100px}
+
+        .tab-bar{display:flex;gap:0;border-bottom:1px solid var(--border);margin-bottom:20px}
+        .tab-btn{padding:10px 20px;font-size:.85rem;color:var(--dim);cursor:pointer;border-bottom:2px solid transparent;transition:.15s;background:none;border-top:none;border-left:none;border-right:none;white-space:nowrap}
+        .tab-btn:hover{color:var(--text)}
+        .tab-btn.active{color:var(--accent);border-bottom-color:var(--accent)}
+        .tab-content{display:none}.tab-content.active{display:block}
+
+        .card-box{background:var(--bg-card);border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:16px}
+        .card-head{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid var(--border)}
+        .card-head .nm{font-weight:600;font-size:.92rem;display:flex;align-items:center;gap:8px}
+        .card-body-inner{padding:16px 18px}
+
+        .form-label{font-size:.78rem;color:var(--dim);margin-bottom:3px}
+        .form-control,.form-select{background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:7px;padding:6px 10px;font-size:.82rem;width:100%}
+        .form-control:focus,.form-select:focus{border-color:var(--accent);outline:none;box-shadow:0 0 0 2px var(--accent-glow)}
+        .form-control::placeholder{color:var(--dim)}
+        .input-group{display:flex;gap:6px;align-items:center}
+        .input-group .form-control{flex:1}
+
+        .src-badge{display:inline-flex;align-items:center;gap:4px;background:var(--bg-el);border:1px solid var(--border);border-radius:5px;padding:2px 8px;font-size:.7rem;color:var(--dim);margin-bottom:6px}
+        .src-badge.free{border-color:var(--green);color:var(--green)}
+        .src-badge.paid{border-color:var(--orange);color:var(--orange)}
+        .src-badge a{color:inherit;text-decoration:none}
+        .src-badge a:hover{text-decoration:underline}
+
+        .api-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:14px}
+
+        /* Table */
+        .data-table{width:100%;border-collapse:collapse}
+        .data-table th{font-size:.72rem;text-transform:uppercase;color:var(--dim);padding:8px 10px;border-bottom:1px solid var(--border);white-space:nowrap}
+        .data-table td{padding:8px 10px;border-bottom:1px solid var(--border);font-size:.8rem;vertical-align:middle}
+        .data-table tr:last-child td{border-bottom:none}
+        .data-table input{background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:5px;padding:3px 7px;font-size:.78rem;width:100%}
+        .data-table input:focus{border-color:var(--accent);outline:none}
+
+        .btn-a{background:var(--accent);color:#fff;border:none;border-radius:7px;padding:7px 16px;font-weight:600;font-size:.82rem;cursor:pointer}
+        .btn-a:hover{background:#6b4de6}
+        .btn-o{background:transparent;border:1px solid var(--border);color:var(--dim);border-radius:6px;padding:4px 10px;font-size:.75rem;cursor:pointer;transition:.15s}
+        .btn-o:hover{border-color:var(--accent);color:var(--accent)}
+        .btn-del{background:transparent;border:none;color:var(--red);cursor:pointer;font-size:.85rem;padding:3px 6px;border-radius:4px}
+        .btn-del:hover{background:rgba(239,68,68,.1)}
+        .btn-add{background:transparent;border:1px dashed var(--border);color:var(--dim);border-radius:6px;padding:5px 12px;font-size:.78rem;cursor:pointer;width:100%;transition:.15s;margin-top:8px}
+        .btn-add:hover{border-color:var(--accent);color:var(--accent)}
+
+        .priority-HIGH{color:var(--red);font-weight:600}
+        .priority-ELEVATED{color:var(--orange);font-weight:600}
+        .priority-MEDIUM{color:var(--blue)}
+        .priority-LOW{color:var(--dim)}
+
+        .theater-chip{display:inline-block;padding:1px 7px;border-radius:3px;font-size:.68rem;font-weight:600}
+        .theater-middleEast{background:rgba(239,68,68,.15);color:var(--red)}
+        .theater-indoPacific{background:rgba(59,130,246,.15);color:var(--blue)}
+        .theater-europe{background:rgba(124,92,252,.15);color:var(--accent)}
+        .theater-africa{background:rgba(245,158,11,.15);color:var(--orange)}
+
+        .toast-bar{position:fixed;bottom:24px;right:24px;background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:12px 20px;font-size:.85rem;display:none;z-index:999;box-shadow:0 4px 24px rgba(0,0,0,.4)}
+        .toast-bar.ok{border-color:var(--green);color:var(--green)}
+        .toast-bar.err{border-color:var(--red);color:var(--red)}
+
+        .eye-btn{background:transparent;border:none;color:var(--dim);cursor:pointer;padding:0 6px;font-size:.9rem}
+        .eye-btn:hover{color:var(--text)}
+
+        .section-title{font-size:.72rem;text-transform:uppercase;letter-spacing:.5px;color:var(--dim);margin:20px 0 10px;display:flex;align-items:center;gap:6px}
+
+        /* Mobile */
+        .sidebar-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:99}
+        .sidebar-overlay.open{display:block}
+        .menu-btn{display:none;background:none;border:none;color:var(--text);font-size:1.4rem;cursor:pointer;padding:4px 10px}
+        .topbar-left{display:flex;align-items:center}
+        @media(max-width:1024px){
+            .sidebar{transform:translateX(-100%);transition:transform .25s;z-index:200}
+            .sidebar.open{transform:translateX(0)}
+            .main{margin-left:0}
+            .menu-btn{display:inline-flex;align-items:center}
+            .topbar{padding:0 10px}
+            .content{padding:12px 10px}
+            .api-grid{grid-template-columns:1fr}
+        }
+    </style>
+</head>
+<body>
+
+<div class="sidebar-overlay" id="sidebarOverlay" onclick="closeSidebar()"></div>
+<div class="sidebar" id="sidebar">
+    <div class="sidebar-brand"><i class="bi bi-binoculars"></i> OSINT Recon</div>
+    <nav class="sidebar-nav">
+        <a href="/"><i class="bi bi-activity"></i> 대시보드</a>
+        <a href="/browse"><i class="bi bi-database"></i> 벡터 DB</a>
+        <a href="/chat"><i class="bi bi-chat-dots"></i> AI 채팅</a>
+        <a href="/intel"><i class="bi bi-radar"></i> 인텔 브리핑</a>
+        <a href="/osint-settings" class="active"><i class="bi bi-sliders2"></i> 수집설정</a>
+    </nav>
+    <div class="sidebar-footer">
+        <a href="/logout" style="display:block;color:var(--dim);font-size:.72rem;text-decoration:none"><i class="bi bi-box-arrow-left me-1"></i>로그아웃</a>
+    </div>
+</div>
+
+<div class="main">
+    <div class="topbar">
+        <div class="topbar-left">
+            <button class="menu-btn" onclick="toggleSidebar()"><i class="bi bi-list"></i></button>
+            <h4><i class="bi bi-sliders me-2" style="color:var(--accent)"></i>OSINT 수집 설정</h4>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center">
+            <span id="saveStatus" style="font-size:.78rem;color:var(--dim)"></span>
+            <button class="btn-a" onclick="saveAll()"><i class="bi bi-floppy me-1"></i>저장</button>
+        </div>
+    </div>
+
+    <div class="content">
+        <div class="tab-bar">
+            <button class="tab-btn active" onclick="switchTab('api',this)"><i class="bi bi-key me-1"></i>API 키</button>
+            <button class="tab-btn" onclick="switchTab('regions',this)"><i class="bi bi-globe me-1"></i>감시 지역</button>
+            <button class="tab-btn" onclick="switchTab('watchlist',this)"><i class="bi bi-list-check me-1"></i>감시 목록</button>
+            <button class="tab-btn" onclick="switchTab('military',this)"><i class="bi bi-shield me-1"></i>군사 시설 / 함정</button>
+        </div>
+
+        <!-- ── Tab: API 키 ── -->
+        <div class="tab-content active" id="tab-api">
+            <div style="font-size:.8rem;color:var(--dim);margin-bottom:16px">각 수집 모듈의 데이터 출처와 API 인증 정보를 설정합니다.</div>
+            <div class="api-grid" id="apiGrid"></div>
+        </div>
+
+        <!-- ── Tab: 감시 지역 ── -->
+        <div class="tab-content" id="tab-regions">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+                <div style="font-size:.8rem;color:var(--dim)">항공·해상·열점 수집 시 집중 감시할 지역 (Bounding Box)</div>
+                <button class="btn-o" onclick="addRegionRow()"><i class="bi bi-plus-lg me-1"></i>지역 추가</button>
+            </div>
+            <div class="card-box">
+                <table class="data-table" id="regionsTable">
+                    <thead><tr>
+                        <th>ID</th><th>이름</th><th>영문명</th><th>전구</th><th>우선순위</th>
+                        <th>SW (위도,경도)</th><th>NE (위도,경도)</th><th></th>
+                    </tr></thead>
+                    <tbody id="regionsTbody"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- ── Tab: 감시 목록 ── -->
+        <div class="tab-content" id="tab-watchlist">
+            <!-- 원자재 -->
+            <div class="section-title"><i class="bi bi-bar-chart-line" style="color:var(--orange)"></i>원자재 감시 목록</div>
+            <div class="card-box">
+                <table class="data-table">
+                    <thead><tr><th>심볼</th><th>한국명</th><th>영문명</th><th>카테고리</th><th>단위</th><th>알림 임계값(%)</th><th></th></tr></thead>
+                    <tbody id="commodityTbody"></tbody>
+                </table>
+                <button class="btn-add" onclick="addCommodityRow()"><i class="bi bi-plus me-1"></i>원자재 추가</button>
+            </div>
+
+            <!-- 환율 -->
+            <div class="section-title"><i class="bi bi-currency-exchange" style="color:var(--green)"></i>환율 감시 목록</div>
+            <div class="card-box">
+                <table class="data-table">
+                    <thead><tr><th>통화코드</th><th>한국명</th><th>영문명</th><th>알림 임계값(%)</th><th></th></tr></thead>
+                    <tbody id="forexTbody"></tbody>
+                </table>
+                <button class="btn-add" onclick="addForexRow()"><i class="bi bi-plus me-1"></i>통화 추가</button>
+            </div>
+
+            <!-- 감시 국가 -->
+            <div class="section-title"><i class="bi bi-flag" style="color:var(--red)"></i>분쟁 감시 국가 (전구별, 쉼표로 구분)</div>
+            <div class="api-grid" id="countriesGrid"></div>
+        </div>
+
+        <!-- ── Tab: 군사 시설 / 함정 ── -->
+        <div class="tab-content" id="tab-military">
+            <div class="section-title"><i class="bi bi-geo-alt" style="color:var(--red)"></i>군사 시설 (열점 이상 탐지 대상)</div>
+            <div class="card-box">
+                <table class="data-table">
+                    <thead><tr><th>시설명</th><th>위도</th><th>경도</th><th>감시 반경(km)</th><th></th></tr></thead>
+                    <tbody id="facilitiesTbody"></tbody>
+                </table>
+                <button class="btn-add" onclick="addFacilityRow()"><i class="bi bi-plus me-1"></i>시설 추가</button>
+            </div>
+
+            <div class="section-title"><i class="bi bi-tsunami" style="color:var(--blue)"></i>알려진 군함 MMSI</div>
+            <div class="card-box">
+                <table class="data-table">
+                    <thead><tr><th>MMSI</th><th>함명</th><th>종류</th><th>국가</th><th></th></tr></thead>
+                    <tbody id="mmsiTbody"></tbody>
+                </table>
+                <button class="btn-add" onclick="addMmsiRow()"><i class="bi bi-plus me-1"></i>함정 추가</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 저장 확인 모달 -->
+<div id="confirmModal" style="display:none;position:fixed;inset:0;z-index:500;background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center">
+    <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:14px;padding:28px 32px;width:340px;max-width:90vw;box-shadow:0 8px 40px rgba(0,0,0,.5)">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+            <i class="bi bi-exclamation-triangle-fill" style="color:var(--orange);font-size:1.4rem"></i>
+            <span style="font-weight:700;font-size:1rem">설정 변경 확인</span>
+        </div>
+        <div style="color:var(--dim);font-size:.88rem;margin-bottom:22px;line-height:1.6">
+            정말로 변경하시겠습니까?<br>
+            <span style="font-size:.78rem;color:var(--red)">설정 파일(config/settings.py)이 덮어쓰여집니다.</span>
+        </div>
+        <div style="display:flex;gap:10px;justify-content:flex-end">
+            <button onclick="closeConfirm()" style="background:transparent;border:1px solid var(--border);color:var(--dim);border-radius:7px;padding:8px 20px;font-size:.85rem;cursor:pointer">취소</button>
+            <button onclick="confirmSave()" style="background:var(--accent);border:none;color:#fff;border-radius:7px;padding:8px 20px;font-weight:600;font-size:.85rem;cursor:pointer"><i class="bi bi-floppy me-1"></i>저장</button>
+        </div>
+    </div>
+</div>
+
+<div class="toast-bar" id="toastBar"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+let _cfg = {};
+
+const API_MODULES = [
+    {
+        key: "gemini", label: "AI 브리핑", icon: "🤖",
+        fields: [{id:"gemini", label:"Gemini API Key"}],
+        badges: [{text:"Google AI Studio", cls:"free", href:"https://aistudio.google.com/"}]
+    },
+    {
+        key: "aviation", label: "항공 (Aviation)", icon: "✈️",
+        fields: [{id:"opensky_id", label:"Client ID"}, {id:"opensky_secret", label:"Client Secret"}],
+        badges: [{text:"OpenSky Network · 무료", cls:"free", href:"https://opensky-network.org"}]
+    },
+    {
+        key: "maritime", label: "해상 (Maritime)", icon: "⚓",
+        fields: [{id:"aisstream", label:"AISStream API Key"}],
+        badges: [{text:"AISStream.io · 무료", cls:"free", href:"https://aisstream.io"}]
+    },
+    {
+        key: "conflicts", label: "분쟁 (Conflicts)", icon: "💥",
+        fields: [{id:"acled_email", label:"ACLED Email"}, {id:"acled_password", label:"ACLED Password", type:"password"}],
+        badges: [
+            {text:"GDELT · 무료", cls:"free", href:"https://gdeltproject.org"},
+            {text:"ACLED · 유료", cls:"paid", href:"https://acleddata.com"}
+        ]
+    },
+    {
+        key: "thermal", label: "열점 (Thermal)", icon: "🔥",
+        fields: [{id:"firms", label:"NASA FIRMS API Key"}],
+        badges: [{text:"NASA FIRMS · 무료", cls:"free", href:"https://firms.modaps.eosdis.nasa.gov"}]
+    },
+    {
+        key: "commodity", label: "원자재 (Commodity)", icon: "📈",
+        fields: [
+            {id:"oil_price", label:"OilPrice API Key"},
+            {id:"commodity", label:"CommodityAPI Key"},
+            {id:"metals", label:"MetalPrice API Key"}
+        ],
+        badges: [
+            {text:"oilpriceapi.com", cls:"free", href:"https://oilpriceapi.com"},
+            {text:"commodities-api.com", cls:"free", href:"https://commodities-api.com"},
+            {text:"metalpriceapi.com", cls:"free", href:"https://metalpriceapi.com"}
+        ]
+    },
+    {
+        key: "forex", label: "환율 (Forex)", icon: "💱",
+        fields: [{id:"exchange_rate", label:"ExchangeRate API Key"}],
+        badges: [{text:"exchangerate-api.com · 무료", cls:"free", href:"https://exchangerate-api.com"}]
+    },
+];
+
+const THEATER_LABELS = {middleEast:"중동", indoPacific:"인도태평양", europe:"유럽", africa:"아프리카"};
+const PRIORITY_OPTS = ["HIGH","ELEVATED","MEDIUM","LOW"];
+const THEATER_OPTS  = ["middleEast","indoPacific","europe","africa"];
+
+// ── 탭 ──
+function switchTab(id, btn) {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('tab-'+id).classList.add('active');
+}
+
+// ── 데이터 로드 ──
+async function loadSettings() {
+    const r = await fetch('/api/osint/settings').then(r => r.json());
+    if (r.error) { showToast('설정 로드 실패: '+r.error, false); return; }
+    _cfg = r;
+    renderApiKeys(r.api_keys || {});
+    renderRegions(r.watch_regions || {});
+    renderCommodity(r.commodity_watchlist || {}, r.commodity_alerts || {});
+    renderForex(r.forex_watchlist || {}, r.forex_alerts || {});
+    renderCountries(r.watch_countries || {});
+    renderFacilities(r.military_facilities || []);
+    renderMmsi(r.known_naval_mmsi || {});
+}
+
+// ── API 키 렌더 ──
+function renderApiKeys(keys) {
+    const el = document.getElementById('apiGrid');
+    el.innerHTML = API_MODULES.map(mod => {
+        const badges = mod.badges.map(b =>
+            `<span class="src-badge ${b.cls}"><a href="${b.href}" target="_blank">${b.text}</a></span>`
+        ).join(' ');
+        const fields = mod.fields.map(f => {
+            const val = keys[f.id] || '';
+            const inputType = f.type || 'text';
+            return `<div style="margin-bottom:8px">
+                <div class="form-label">${f.label}</div>
+                <div class="input-group">
+                    <input type="${inputType === 'password' ? 'password' : 'text'}"
+                           class="form-control api-input" data-key="${f.id}"
+                           value="${esc(val)}" autocomplete="off"
+                           style="font-family:monospace;font-size:.78rem">
+                    <button class="eye-btn" onclick="toggleEye(this)" title="표시/숨김">
+                        <i class="bi bi-eye-slash"></i>
+                    </button>
+                </div>
+            </div>`;
+        }).join('');
+        return `<div class="card-box">
+            <div class="card-head">
+                <div class="nm"><span style="font-size:1.2rem">${mod.icon}</span>${mod.label}</div>
+            </div>
+            <div class="card-body-inner">
+                <div style="margin-bottom:10px">${badges}</div>
+                ${fields}
+            </div>
+        </div>`;
+    }).join('');
+}
+
+function toggleEye(btn) {
+    const input = btn.previousElementSibling;
+    if (input.type === 'password' || input.dataset.hidden === '1') {
+        input.type = 'text';
+        input.dataset.hidden = '0';
+        btn.innerHTML = '<i class="bi bi-eye"></i>';
+    } else {
+        input.type = 'password';
+        input.dataset.hidden = '1';
+        btn.innerHTML = '<i class="bi bi-eye-slash"></i>';
+    }
+}
+
+// ── 감시 지역 ──
+function renderRegions(regions) {
+    const tbody = document.getElementById('regionsTbody');
+    tbody.innerHTML = '';
+    for (const [id, r] of Object.entries(regions)) {
+        const sw = r.bbox[0];
+        const ne = r.bbox[1];
+        const tr = document.createElement('tr');
+        tr.dataset.rid = id;
+        tr.innerHTML = `
+            <td><input value="${esc(id)}" class="r-id" style="width:100px"></td>
+            <td><input value="${esc(r.name)}" class="r-name"></td>
+            <td><input value="${esc(r.nameEn||'')}" class="r-nameEn"></td>
+            <td>
+                <select class="form-select r-theater" style="padding:3px 6px;font-size:.75rem">
+                    ${THEATER_OPTS.map(t=>`<option value="${t}" ${r.theater===t?'selected':''}>${THEATER_LABELS[t]||t}</option>`).join('')}
+                </select>
+            </td>
+            <td>
+                <select class="form-select r-priority" style="padding:3px 6px;font-size:.75rem">
+                    ${PRIORITY_OPTS.map(p=>`<option value="${p}" ${r.priority===p?'selected':''}>${p}</option>`).join('')}
+                </select>
+            </td>
+            <td><input value="${sw[0]},${sw[1]}" class="r-sw" style="width:100px" placeholder="위도,경도"></td>
+            <td><input value="${ne[0]},${ne[1]}" class="r-ne" style="width:100px" placeholder="위도,경도"></td>
+            <td><button class="btn-del" onclick="this.closest('tr').remove()"><i class="bi bi-trash"></i></button></td>
+        `;
+        tbody.appendChild(tr);
+    }
+}
+
+function addRegionRow() {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+        <td><input value="new_region" class="r-id" style="width:100px"></td>
+        <td><input value="새 지역" class="r-name"></td>
+        <td><input value="" class="r-nameEn"></td>
+        <td><select class="form-select r-theater" style="padding:3px 6px;font-size:.75rem">
+            ${THEATER_OPTS.map(t=>`<option value="${t}">${THEATER_LABELS[t]||t}</option>`).join('')}
+        </select></td>
+        <td><select class="form-select r-priority" style="padding:3px 6px;font-size:.75rem">
+            ${PRIORITY_OPTS.map(p=>`<option value="${p}">${p}</option>`).join('')}
+        </select></td>
+        <td><input value="0,0" class="r-sw" style="width:100px"></td>
+        <td><input value="0,0" class="r-ne" style="width:100px"></td>
+        <td><button class="btn-del" onclick="this.closest('tr').remove()"><i class="bi bi-trash"></i></button></td>
+    `;
+    document.getElementById('regionsTbody').appendChild(tr);
+}
+
+function collectRegions() {
+    const rows = document.querySelectorAll('#regionsTbody tr');
+    const result = {};
+    rows.forEach(tr => {
+        const id = tr.querySelector('.r-id').value.trim();
+        if (!id) return;
+        const swParts = tr.querySelector('.r-sw').value.split(',').map(Number);
+        const neParts = tr.querySelector('.r-ne').value.split(',').map(Number);
+        result[id] = {
+            name:    tr.querySelector('.r-name').value,
+            nameEn:  tr.querySelector('.r-nameEn').value,
+            theater: tr.querySelector('.r-theater').value,
+            priority:tr.querySelector('.r-priority').value,
+            bbox:    [swParts, neParts],
+        };
+    });
+    return result;
+}
+
+// ── 원자재 ──
+function renderCommodity(watchlist, alerts) {
+    const tbody = document.getElementById('commodityTbody');
+    tbody.innerHTML = '';
+    for (const [sym, v] of Object.entries(watchlist)) {
+        addCommodityRowData(sym, v, alerts[sym] ?? alerts['DEFAULT'] ?? 5.0);
+    }
+}
+
+function addCommodityRow() {
+    addCommodityRowData('', {name_kr:'',name_en:'',category:'',unit:''}, 5.0);
+}
+
+function addCommodityRowData(sym, v, threshold) {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+        <td><input value="${esc(sym)}" class="c-sym" style="width:70px;text-transform:uppercase"></td>
+        <td><input value="${esc(v.name_kr||'')}" class="c-kr"></td>
+        <td><input value="${esc(v.name_en||'')}" class="c-en"></td>
+        <td><input value="${esc(v.category||'')}" class="c-cat" style="width:80px"></td>
+        <td><input value="${esc(v.unit||'')}" class="c-unit" style="width:60px"></td>
+        <td><input type="number" value="${threshold}" class="c-thr" style="width:60px" step="0.1" min="0"></td>
+        <td><button class="btn-del" onclick="this.closest('tr').remove()"><i class="bi bi-trash"></i></button></td>
+    `;
+    document.getElementById('commodityTbody').appendChild(tr);
+}
+
+function collectCommodity() {
+    const watchlist = {}, alerts = {};
+    document.querySelectorAll('#commodityTbody tr').forEach(tr => {
+        const sym = tr.querySelector('.c-sym').value.trim().toUpperCase();
+        if (!sym) return;
+        watchlist[sym] = {
+            name_kr: tr.querySelector('.c-kr').value,
+            name_en: tr.querySelector('.c-en').value,
+            category:tr.querySelector('.c-cat').value,
+            unit:    tr.querySelector('.c-unit').value,
+        };
+        alerts[sym] = parseFloat(tr.querySelector('.c-thr').value) || 5.0;
+    });
+    alerts['DEFAULT'] = alerts['DEFAULT'] || 5.0;
+    return { watchlist, alerts };
+}
+
+// ── 환율 ──
+function renderForex(watchlist, alerts) {
+    const tbody = document.getElementById('forexTbody');
+    tbody.innerHTML = '';
+    for (const [code, v] of Object.entries(watchlist)) {
+        addForexRowData(code, v, alerts[code] ?? alerts['DEFAULT'] ?? 2.0);
+    }
+}
+
+function addForexRow() {
+    addForexRowData('', {name_kr:'',name_en:''}, 2.0);
+}
+
+function addForexRowData(code, v, threshold) {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+        <td><input value="${esc(code)}" class="f-code" style="width:70px;text-transform:uppercase"></td>
+        <td><input value="${esc(v.name_kr||'')}" class="f-kr"></td>
+        <td><input value="${esc(v.name_en||'')}" class="f-en"></td>
+        <td><input type="number" value="${threshold}" class="f-thr" style="width:60px" step="0.1" min="0"></td>
+        <td><button class="btn-del" onclick="this.closest('tr').remove()"><i class="bi bi-trash"></i></button></td>
+    `;
+    document.getElementById('forexTbody').appendChild(tr);
+}
+
+function collectForex() {
+    const watchlist = {}, alerts = {};
+    document.querySelectorAll('#forexTbody tr').forEach(tr => {
+        const code = tr.querySelector('.f-code').value.trim().toUpperCase();
+        if (!code) return;
+        watchlist[code] = {
+            name_kr: tr.querySelector('.f-kr').value,
+            name_en: tr.querySelector('.f-en').value,
+        };
+        alerts[code] = parseFloat(tr.querySelector('.f-thr').value) || 2.0;
+    });
+    alerts['DEFAULT'] = alerts['DEFAULT'] || 2.0;
+    return { watchlist, alerts };
+}
+
+// ── 감시 국가 ──
+function renderCountries(wc) {
+    const el = document.getElementById('countriesGrid');
+    const theaters = [
+        {id:'middleEast', label:'중동', color:'var(--red)'},
+        {id:'indoPacific', label:'인도태평양', color:'var(--blue)'},
+        {id:'europe', label:'유럽', color:'var(--accent)'},
+        {id:'africa', label:'아프리카', color:'var(--orange)'},
+    ];
+    el.innerHTML = theaters.map(t => {
+        const countries = (wc[t.id] || []).join(', ');
+        return `<div class="card-box">
+            <div class="card-head"><div class="nm" style="color:${t.color}">${t.label}</div></div>
+            <div class="card-body-inner">
+                <div class="form-label">국가명 (쉼표 구분, 영문)</div>
+                <textarea class="form-control country-input" data-theater="${t.id}"
+                    rows="4" style="resize:vertical;font-size:.78rem">${esc(countries)}</textarea>
+            </div>
+        </div>`;
+    }).join('');
+}
+
+function collectCountries() {
+    const result = {};
+    document.querySelectorAll('.country-input').forEach(el => {
+        const theater = el.dataset.theater;
+        result[theater] = el.value.split(',').map(s => s.trim()).filter(Boolean);
+    });
+    return result;
+}
+
+// ── 군사 시설 ──
+function renderFacilities(facs) {
+    const tbody = document.getElementById('facilitiesTbody');
+    tbody.innerHTML = '';
+    facs.forEach(f => addFacilityRowData(f));
+}
+
+function addFacilityRow() {
+    addFacilityRowData({name:'', lat:0, lon:0, radius_km:10});
+}
+
+function addFacilityRowData(f) {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+        <td><input value="${esc(f.name)}" class="fa-name"></td>
+        <td><input type="number" value="${f.lat}" class="fa-lat" style="width:80px" step="0.01"></td>
+        <td><input type="number" value="${f.lon}" class="fa-lon" style="width:80px" step="0.01"></td>
+        <td><input type="number" value="${f.radius_km}" class="fa-rad" style="width:60px" min="1"></td>
+        <td><button class="btn-del" onclick="this.closest('tr').remove()"><i class="bi bi-trash"></i></button></td>
+    `;
+    document.getElementById('facilitiesTbody').appendChild(tr);
+}
+
+function collectFacilities() {
+    const result = [];
+    document.querySelectorAll('#facilitiesTbody tr').forEach(tr => {
+        const name = tr.querySelector('.fa-name').value.trim();
+        if (!name) return;
+        result.push({
+            name, lat: parseFloat(tr.querySelector('.fa-lat').value)||0,
+            lon: parseFloat(tr.querySelector('.fa-lon').value)||0,
+            radius_km: parseFloat(tr.querySelector('.fa-rad').value)||10,
+        });
+    });
+    return result;
+}
+
+// ── 군함 MMSI ──
+function renderMmsi(mmsi) {
+    const tbody = document.getElementById('mmsiTbody');
+    tbody.innerHTML = '';
+    for (const [k, v] of Object.entries(mmsi)) {
+        addMmsiRowData(k, v);
+    }
+}
+
+function addMmsiRow() {
+    addMmsiRowData('', {name:'', type:'destroyer', nation:'US'});
+}
+
+function addMmsiRowData(mmsi, v) {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+        <td><input value="${esc(mmsi)}" class="mm-id" style="width:110px;font-family:monospace"></td>
+        <td><input value="${esc(v.name||'')}" class="mm-name"></td>
+        <td><input value="${esc(v.type||'')}" class="mm-type" style="width:90px"></td>
+        <td><input value="${esc(v.nation||'')}" class="mm-nation" style="width:50px;text-transform:uppercase"></td>
+        <td><button class="btn-del" onclick="this.closest('tr').remove()"><i class="bi bi-trash"></i></button></td>
+    `;
+    document.getElementById('mmsiTbody').appendChild(tr);
+}
+
+function collectMmsi() {
+    const result = {};
+    document.querySelectorAll('#mmsiTbody tr').forEach(tr => {
+        const id = tr.querySelector('.mm-id').value.trim();
+        if (!id) return;
+        result[id] = {
+            name:   tr.querySelector('.mm-name').value,
+            type:   tr.querySelector('.mm-type').value,
+            nation: tr.querySelector('.mm-nation').value.toUpperCase(),
+        };
+    });
+    return result;
+}
+
+// ── 저장 확인 모달 ──
+function saveAll() {
+    const modal = document.getElementById('confirmModal');
+    modal.style.display = 'flex';
+}
+
+function closeConfirm() {
+    document.getElementById('confirmModal').style.display = 'none';
+}
+
+document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') closeConfirm();
+});
+
+document.getElementById('confirmModal').addEventListener('click', function(e) {
+    if (e.target === this) closeConfirm();
+});
+
+async function confirmSave() {
+    closeConfirm();
+    const saveStatus = document.getElementById('saveStatus');
+    saveStatus.textContent = '저장 중...';
+    saveStatus.style.color = 'var(--dim)';
+
+    // API 키 수집
+    const api_keys = {};
+    document.querySelectorAll('.api-input').forEach(el => {
+        api_keys[el.dataset.key] = el.value;
+    });
+
+    const { watchlist: commodity_watchlist, alerts: commodity_alerts } = collectCommodity();
+    const { watchlist: forex_watchlist, alerts: forex_alerts } = collectForex();
+
+    const payload = {
+        api_keys,
+        watch_regions:     collectRegions(),
+        commodity_watchlist, commodity_alerts,
+        forex_watchlist,  forex_alerts,
+        watch_countries:   collectCountries(),
+        military_facilities: collectFacilities(),
+        known_naval_mmsi:  collectMmsi(),
+    };
+
+    try {
+        const r = await fetch('/api/osint/settings', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(payload),
+        }).then(r => r.json());
+
+        if (r.success) {
+            saveStatus.textContent = '저장됨 ✓';
+            saveStatus.style.color = 'var(--green)';
+            showToast('설정이 저장되었습니다.', true);
+            setTimeout(() => saveStatus.textContent = '', 3000);
+        } else {
+            saveStatus.textContent = '저장 실패';
+            saveStatus.style.color = 'var(--red)';
+            showToast('저장 실패: ' + r.error, false);
+        }
+    } catch(e) {
+        saveStatus.textContent = '오류';
+        saveStatus.style.color = 'var(--red)';
+        showToast('오류: ' + e.message, false);
+    }
+}
+
+function showToast(msg, ok) {
+    const el = document.getElementById('toastBar');
+    el.textContent = (ok ? '✓ ' : '✗ ') + msg;
+    el.className = 'toast-bar ' + (ok ? 'ok' : 'err');
+    el.style.display = 'block';
+    setTimeout(() => el.style.display = 'none', 4000);
+}
+
+function esc(s) {
+    if (!s) return '';
+    const d = document.createElement('div');
+    d.textContent = String(s);
+    return d.innerHTML;
+}
+
+function toggleSidebar() {
+    document.getElementById('sidebar').classList.toggle('open');
+    document.getElementById('sidebarOverlay').classList.toggle('open');
+}
+function closeSidebar() {
+    document.getElementById('sidebar').classList.remove('open');
+    document.getElementById('sidebarOverlay').classList.remove('open');
+}
+
+loadSettings();
+</script>
+</body>
+</html>

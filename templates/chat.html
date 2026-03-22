@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="ko" data-bs-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OSINT - AI 채팅 검색</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+    <style>
+        :root {
+            --accent: #7c5cfc;
+            --accent-glow: rgba(124,92,252,0.2);
+            --green: #10b981;
+            --bg: #0f0f14;
+            --bg-card: #1a1a24;
+            --bg-elevated: #22222e;
+            --border: #2a2a3a;
+            --text: #e2e2e8;
+            --text-dim: #8888a0;
+        }
+        * { box-sizing: border-box; margin: 0; }
+        body { background: var(--bg); color: var(--text); font-family: 'Inter','Segoe UI',system-ui,sans-serif; height: 100vh; display: flex; }
+
+        /* ── Sidebar ── */
+        .sidebar {
+            width: 260px; background: var(--bg-card); border-right: 1px solid var(--border);
+            display: flex; flex-direction: column; flex-shrink: 0;
+        }
+        .sidebar-brand {
+            padding: 20px; font-size: 1.1rem; font-weight: 700; color: var(--accent);
+            border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 10px;
+        }
+        .sidebar-nav { padding: 12px 0; }
+        .sidebar-nav a {
+            display: flex; align-items: center; gap: 12px; padding: 10px 20px;
+            color: var(--text-dim); text-decoration: none; font-size: 0.88rem;
+            border-left: 3px solid transparent; transition: 0.15s;
+        }
+        .sidebar-nav a:hover { color: var(--text); background: var(--bg-elevated); }
+        .sidebar-nav a.active { color: var(--accent); background: var(--accent-glow); border-left-color: var(--accent); }
+        .sidebar-nav a i { font-size: 1.1rem; width: 20px; text-align: center; }
+
+        .new-chat-btn {
+            margin: 12px 16px; padding: 10px; background: var(--accent); color: white;
+            border: none; border-radius: 10px; font-weight: 600; font-size: 0.88rem;
+            cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px;
+        }
+        .new-chat-btn:hover { background: #6b4de6; }
+
+        .chat-history { flex: 1; overflow-y: auto; padding: 8px 0; }
+        .chat-history-item {
+            padding: 10px 20px; font-size: 0.82rem; color: var(--text-dim);
+            cursor: pointer; transition: 0.15s; display: flex; align-items: center; gap: 8px;
+            border-radius: 0;
+        }
+        .chat-history-item:hover { background: var(--bg-elevated); color: var(--text); }
+        .chat-history-item.active { background: var(--accent-glow); color: var(--accent); }
+        .chat-history-item i { font-size: 0.9rem; }
+
+        .sidebar-stats {
+            padding: 16px 20px; border-top: 1px solid var(--border);
+            font-size: 0.75rem; color: var(--text-dim);
+        }
+        .sidebar-stats .sv { color: var(--green); font-weight: 600; }
+
+        /* ── Chat Main ── */
+        .chat-main { flex: 1; display: flex; flex-direction: column; }
+
+        .chat-topbar {
+            height: 56px; border-bottom: 1px solid var(--border); background: var(--bg-card);
+            display: flex; align-items: center; justify-content: space-between; padding: 0 24px;
+        }
+        .chat-topbar h5 { margin: 0; font-size: 0.95rem; font-weight: 600; }
+        .model-badge {
+            font-size: 0.72rem; background: var(--bg-elevated); border: 1px solid var(--border);
+            padding: 4px 10px; border-radius: 6px; color: var(--text-dim);
+        }
+
+        /* ── Messages ── */
+        .chat-messages {
+            flex: 1; overflow-y: auto; padding: 24px; display: flex; flex-direction: column; gap: 20px;
+        }
+        .chat-messages::-webkit-scrollbar { width: 6px; }
+        .chat-messages::-webkit-scrollbar-track { background: transparent; }
+        .chat-messages::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+        .msg { display: flex; gap: 14px; max-width: 85%; animation: fadeIn 0.3s ease; }
+        .msg.user { align-self: flex-end; flex-direction: row-reverse; }
+        .msg.assistant { align-self: flex-start; }
+
+        .msg-avatar {
+            width: 36px; height: 36px; border-radius: 10px; flex-shrink: 0;
+            display: flex; align-items: center; justify-content: center; font-size: 1rem;
+        }
+        .msg.user .msg-avatar { background: var(--accent); color: white; }
+        .msg.assistant .msg-avatar { background: var(--green); color: white; }
+
+        .msg-bubble {
+            padding: 14px 18px; border-radius: 14px; font-size: 0.9rem; line-height: 1.65;
+        }
+        .msg.user .msg-bubble {
+            background: var(--accent); color: white; border-bottom-right-radius: 4px;
+        }
+        .msg.assistant .msg-bubble {
+            background: var(--bg-card); border: 1px solid var(--border); border-bottom-left-radius: 4px;
+        }
+
+        .msg-bubble strong { color: var(--accent); }
+        .msg.user .msg-bubble strong { color: white; }
+        .msg-bubble a { color: var(--accent); text-decoration: underline; }
+        .msg.user .msg-bubble a { color: #d4c8ff; }
+        .msg-bubble hr { border-color: var(--border); margin: 12px 0; }
+        .msg-bubble blockquote {
+            border-left: 3px solid var(--accent); padding-left: 12px; margin: 8px 0;
+            color: var(--text-dim); font-size: 0.84rem;
+        }
+
+        /* Article cards inside messages */
+        .article-card {
+            background: var(--bg-elevated); border: 1px solid var(--border);
+            border-radius: 10px; padding: 14px; margin: 10px 0; transition: 0.15s;
+        }
+        .article-card:hover { border-color: var(--accent); }
+        .article-card .ac-source { font-size: 0.72rem; color: var(--accent); font-weight: 600; }
+        .article-card .ac-title { font-size: 0.88rem; font-weight: 600; margin: 4px 0 6px; }
+        .article-card .ac-text { font-size: 0.8rem; color: var(--text-dim); line-height: 1.5; }
+        .article-card .ac-meta { font-size: 0.72rem; color: var(--text-dim); margin-top: 8px; display: flex; justify-content: space-between; }
+        .ac-score { background: var(--accent-glow); color: var(--accent); padding: 2px 8px; border-radius: 4px; font-size: 0.72rem; font-weight: 600; }
+
+        /* Welcome */
+        .welcome {
+            flex: 1; display: flex; flex-direction: column; align-items: center;
+            justify-content: center; color: var(--text-dim); text-align: center;
+        }
+        .welcome i { font-size: 3.5rem; color: var(--accent); margin-bottom: 16px; }
+        .welcome h3 { color: var(--text); font-weight: 700; margin-bottom: 8px; }
+        .welcome p { max-width: 400px; font-size: 0.9rem; line-height: 1.6; }
+        .suggestions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 20px; justify-content: center; }
+        .suggestion-chip {
+            background: var(--bg-card); border: 1px solid var(--border); border-radius: 20px;
+            padding: 8px 16px; font-size: 0.82rem; cursor: pointer; transition: 0.15s; color: var(--text-dim);
+        }
+        .suggestion-chip:hover { border-color: var(--accent); color: var(--accent); }
+
+        /* ── Input ── */
+        .chat-input-area {
+            padding: 16px 24px 20px; border-top: 1px solid var(--border); background: var(--bg-card);
+        }
+        .chat-input-wrap {
+            display: flex; align-items: flex-end; gap: 10px;
+            background: var(--bg); border: 1px solid var(--border); border-radius: 14px;
+            padding: 4px 4px 4px 16px; transition: 0.15s;
+        }
+        .chat-input-wrap:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-glow); }
+        .chat-input-wrap textarea {
+            flex: 1; background: transparent; border: none; color: var(--text);
+            font-size: 0.92rem; padding: 10px 0; resize: none; outline: none;
+            font-family: inherit; max-height: 120px; line-height: 1.5;
+        }
+        .chat-input-wrap textarea::placeholder { color: var(--text-dim); }
+        .send-btn {
+            width: 40px; height: 40px; border-radius: 10px; border: none;
+            background: var(--accent); color: white; cursor: pointer; transition: 0.15s;
+            display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+        }
+        .send-btn:hover { background: #6b4de6; }
+        .send-btn:disabled { background: var(--border); cursor: default; }
+        .send-btn i { font-size: 1.1rem; }
+
+        .typing-indicator {
+            display: flex; gap: 4px; padding: 8px 0;
+        }
+        .typing-dot {
+            width: 8px; height: 8px; background: var(--text-dim); border-radius: 50%;
+            animation: typing 1.4s infinite;
+        }
+        .typing-dot:nth-child(2) { animation-delay: 0.2s; }
+        .typing-dot:nth-child(3) { animation-delay: 0.4s; }
+
+        @keyframes typing {
+            0%, 60%, 100% { opacity: 0.3; transform: translateY(0); }
+            30% { opacity: 1; transform: translateY(-4px); }
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(8px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .sidebar-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:99}
+        .sidebar-overlay.open{display:block}
+        .menu-btn{display:none;background:none;border:none;color:var(--text);font-size:1.4rem;cursor:pointer;padding:4px 10px;line-height:1;flex-shrink:0}
+
+        @media(max-width:1024px){
+            .sidebar{position:fixed;top:0;left:0;bottom:0;width:260px;transform:translateX(-100%);transition:transform .25s;z-index:200}
+            .sidebar.open{transform:translateX(0)}
+            .menu-btn{display:inline-flex;align-items:center}
+            .chat-topbar{padding:0 10px}
+            .chat-messages{padding:14px 12px}
+            .chat-input-area{padding:10px 12px}
+            .msg{max-width:95%}
+            .model-badge{display:none}
+        }
+    </style>
+</head>
+<body>
+
+<div class="sidebar-overlay" id="sidebarOverlay" onclick="closeSidebar()"></div>
+<!-- Sidebar -->
+<div class="sidebar" id="sidebar">
+    <div class="sidebar-brand"><i class="bi bi-binoculars"></i> OSINT Recon</div>
+    <nav class="sidebar-nav">
+        <a href="/"><i class="bi bi-activity"></i> 대시보드</a>
+        <a href="/browse"><i class="bi bi-database"></i> 벡터 DB</a>
+        <a href="/chat" class="active"><i class="bi bi-chat-dots"></i> AI 채팅</a>
+        <a href="/intel"><i class="bi bi-radar"></i> 인텔 브리핑</a>
+        <a href="/osint-settings"><i class="bi bi-sliders2"></i> 수집설정</a>
+    </nav>
+    <button class="new-chat-btn" onclick="newChat()"><i class="bi bi-plus-lg"></i> 새 대화</button>
+    <div class="chat-history" id="chatHistory"></div>
+    <div class="sidebar-stats">
+        <div>벡터 DB: <span class="sv" id="dbVectors">-</span> 벡터</div>
+        <div>모델: MiniLM-L12 (다국어)</div>
+        <a href="/logout" style="display:block;margin-top:10px;color:var(--text-dim);font-size:.72rem;text-decoration:none"><i class="bi bi-box-arrow-left me-1"></i>로그아웃</a>
+    </div>
+</div>
+
+<!-- Chat Main -->
+<div class="chat-main">
+    <div class="chat-topbar">
+        <div style="display:flex;align-items:center;gap:0">
+            <button class="menu-btn" onclick="toggleSidebar()"><i class="bi bi-list"></i></button>
+            <h5 style="margin:0;font-size:.95rem;font-weight:600"><i class="bi bi-chat-dots me-2" style="color:var(--accent)"></i>OSINT 데이터 채팅</h5>
+        </div>
+        <span class="model-badge"><i class="bi bi-database me-1"></i>Qdrant + MiniLM-L12</span>
+    </div>
+
+    <div class="chat-messages" id="chatMessages">
+        <div class="welcome" id="welcomeScreen">
+            <i class="bi bi-search-heart"></i>
+            <h3>무엇을 찾고 계신가요?</h3>
+            <p>수집된 뉴스 기사를 시맨틱 검색으로 분석합니다. 자연어로 질문하면 관련 기사를 찾아드립니다.</p>
+            <div class="suggestions">
+                <div class="suggestion-chip" onclick="sendSuggestion(this)">최근 사이버 공격 동향</div>
+                <div class="suggestion-chip" onclick="sendSuggestion(this)">북한 관련 안보 이슈</div>
+                <div class="suggestion-chip" onclick="sendSuggestion(this)">AI 기술 관련 뉴스</div>
+                <div class="suggestion-chip" onclick="sendSuggestion(this)">국제 정치 갈등</div>
+                <div class="suggestion-chip" onclick="sendSuggestion(this)">경제 위기 전망</div>
+                <div class="suggestion-chip" onclick="sendSuggestion(this)">중동 분쟁 현황</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="chat-input-area">
+        <div class="chat-input-wrap">
+            <textarea id="chatInput" placeholder="수집된 뉴스에 대해 질문하세요..." rows="1"
+                      onkeydown="handleKey(event)" oninput="autoResize(this)"></textarea>
+            <button class="send-btn" id="sendBtn" onclick="sendMessage()" title="전송 (Enter)">
+                <i class="bi bi-send-fill"></i>
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+let conversations = JSON.parse(localStorage.getItem('osint_chats') || '[]');
+let currentConvId = null;
+let isLoading = false;
+
+function autoResize(el) {
+    el.style.height = 'auto';
+    el.style.height = Math.min(el.scrollHeight, 120) + 'px';
+}
+
+function handleKey(e) {
+    if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        sendMessage();
+    }
+}
+
+function sendSuggestion(el) {
+    document.getElementById('chatInput').value = el.textContent;
+    sendMessage();
+}
+
+function newChat() {
+    currentConvId = null;
+    document.getElementById('chatMessages').innerHTML = `
+        <div class="welcome" id="welcomeScreen">
+            <i class="bi bi-search-heart"></i>
+            <h3>무엇을 찾고 계신가요?</h3>
+            <p>수집된 뉴스 기사를 시맨틱 검색으로 분석합니다. 자연어로 질문하면 관련 기사를 찾아드립니다.</p>
+            <div class="suggestions">
+                <div class="suggestion-chip" onclick="sendSuggestion(this)">최근 사이버 공격 동향</div>
+                <div class="suggestion-chip" onclick="sendSuggestion(this)">북한 관련 안보 이슈</div>
+                <div class="suggestion-chip" onclick="sendSuggestion(this)">AI 기술 관련 뉴스</div>
+                <div class="suggestion-chip" onclick="sendSuggestion(this)">국제 정치 갈등</div>
+                <div class="suggestion-chip" onclick="sendSuggestion(this)">경제 위기 전망</div>
+                <div class="suggestion-chip" onclick="sendSuggestion(this)">중동 분쟁 현황</div>
+            </div>
+        </div>`;
+    renderHistory();
+}
+
+function addMessage(role, content, articles) {
+    const welcome = document.getElementById('welcomeScreen');
+    if (welcome) welcome.remove();
+
+    const messagesEl = document.getElementById('chatMessages');
+    const div = document.createElement('div');
+    div.className = `msg ${role}`;
+
+    const avatarIcon = role === 'user' ? 'bi-person-fill' : 'bi-robot';
+
+    if (role === 'user') {
+        div.innerHTML = `
+            <div class="msg-avatar"><i class="bi ${avatarIcon}"></i></div>
+            <div class="msg-bubble">${escapeHtml(content)}</div>`;
+    } else {
+        let html = `<div class="msg-avatar"><i class="bi ${avatarIcon}"></i></div><div class="msg-bubble">`;
+
+        if (articles && articles.length) {
+            html += `<div style="margin-bottom:12px;font-size:0.88rem;">
+                <strong>"${escapeHtml(articles._query || '')}"</strong>에 대해 <strong>${articles.length}건</strong>의 관련 기사를 찾았습니다.
+            </div>`;
+
+            articles.forEach((a, i) => {
+                const scorePct = Math.round(a.score * 100);
+                html += `
+                <div class="article-card">
+                    <div style="display:flex;justify-content:space-between;align-items:center;">
+                        <span class="ac-source">${escapeHtml(a.source)}</span>
+                        <span class="ac-score">유사도 ${scorePct}%</span>
+                    </div>
+                    <div class="ac-title">${escapeHtml(a.title)}</div>
+                    <div class="ac-text">${escapeHtml(a.chunk_text?.substring(0, 250) || '')}...</div>
+                    <div class="ac-meta">
+                        <span>${a.published || ''}</span>
+                        <a href="${a.url}" target="_blank" style="color:var(--accent);font-size:0.72rem;">원문 보기 <i class="bi bi-box-arrow-up-right"></i></a>
+                    </div>
+                </div>`;
+            });
+        } else {
+            html += formatMarkdown(content);
+        }
+
+        html += '</div>';
+        div.innerHTML = html;
+    }
+
+    messagesEl.appendChild(div);
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+}
+
+function showTyping() {
+    const welcome = document.getElementById('welcomeScreen');
+    if (welcome) welcome.remove();
+
+    const messagesEl = document.getElementById('chatMessages');
+    const div = document.createElement('div');
+    div.className = 'msg assistant';
+    div.id = 'typingMsg';
+    div.innerHTML = `
+        <div class="msg-avatar"><i class="bi bi-robot"></i></div>
+        <div class="msg-bubble">
+            <div class="typing-indicator">
+                <div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div>
+            </div>
+        </div>`;
+    messagesEl.appendChild(div);
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+}
+
+function removeTyping() {
+    const el = document.getElementById('typingMsg');
+    if (el) el.remove();
+}
+
+async function sendMessage() {
+    if (isLoading) return;
+    const input = document.getElementById('chatInput');
+    const msg = input.value.trim();
+    if (!msg) return;
+
+    input.value = '';
+    input.style.height = 'auto';
+    isLoading = true;
+    document.getElementById('sendBtn').disabled = true;
+
+    // Create conversation if needed
+    if (!currentConvId) {
+        currentConvId = 'conv_' + Date.now();
+        conversations.unshift({ id: currentConvId, title: msg.substring(0, 40), messages: [], created: new Date().toISOString() });
+    }
+
+    addMessage('user', msg);
+
+    // Save user message
+    const conv = conversations.find(c => c.id === currentConvId);
+    if (conv) conv.messages.push({ role: 'user', content: msg });
+
+    showTyping();
+
+    try {
+        const resp = await fetch('/api/chat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ message: msg })
+        });
+        const data = await resp.json();
+        removeTyping();
+
+        if (data.success && data.articles && data.articles.length) {
+            data.articles._query = msg;
+            addMessage('assistant', data.response, data.articles);
+            if (conv) conv.messages.push({ role: 'assistant', content: data.response, articles: data.articles });
+        } else {
+            const fallback = data.response || data.error || '결과를 가져올 수 없습니다.';
+            addMessage('assistant', fallback);
+            if (conv) conv.messages.push({ role: 'assistant', content: fallback });
+        }
+    } catch (e) {
+        removeTyping();
+        addMessage('assistant', '오류가 발생했습니다: ' + e.message);
+    }
+
+    // Save conversations
+    localStorage.setItem('osint_chats', JSON.stringify(conversations.slice(0, 30)));
+    renderHistory();
+
+    isLoading = false;
+    document.getElementById('sendBtn').disabled = false;
+    input.focus();
+}
+
+function loadConversation(convId) {
+    const conv = conversations.find(c => c.id === convId);
+    if (!conv) return;
+
+    currentConvId = convId;
+    const messagesEl = document.getElementById('chatMessages');
+    messagesEl.innerHTML = '';
+
+    conv.messages.forEach(m => {
+        if (m.articles && m.articles.length) {
+            m.articles._query = '';
+            addMessage(m.role, m.content, m.articles);
+        } else {
+            addMessage(m.role, m.content);
+        }
+    });
+
+    renderHistory();
+}
+
+function renderHistory() {
+    const el = document.getElementById('chatHistory');
+    el.innerHTML = conversations.map(c => `
+        <div class="chat-history-item ${c.id === currentConvId ? 'active' : ''}"
+             onclick="loadConversation('${c.id}')">
+            <i class="bi bi-chat-text"></i>
+            <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(c.title)}</span>
+        </div>
+    `).join('');
+}
+
+function escapeHtml(str) {
+    if (!str) return '';
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+}
+
+function formatMarkdown(text) {
+    if (!text) return '';
+    return escapeHtml(text)
+        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+        .replace(/\*(.*?)\*/g, '<em>$1</em>')
+        .replace(/\n---\n/g, '<hr>')
+        .replace(/&gt; (.*?)(?:\n|$)/g, '<blockquote>$1</blockquote>')
+        .replace(/\[(.*?)\]\((.*?)\)/g, '<a href="$2" target="_blank">$1</a>')
+        .replace(/\n/g, '<br>');
+}
+
+// Load DB stats
+async function loadStats() {
+    try {
+        const resp = await fetch('/api/news/stats');
+        const data = await resp.json();
+        document.getElementById('dbVectors').textContent = data.total_vectors || 0;
+    } catch(e) {}
+}
+
+renderHistory();
+loadStats();
+document.getElementById('chatInput').focus();
+
+function toggleSidebar() {
+    document.getElementById('sidebar').classList.toggle('open');
+    document.getElementById('sidebarOverlay').classList.toggle('open');
+}
+function closeSidebar() {
+    document.getElementById('sidebar').classList.remove('open');
+    document.getElementById('sidebarOverlay').classList.remove('open');
+}
+</script>
+</body>
+</html>

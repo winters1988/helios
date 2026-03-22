@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KSPD 인텔 브리핑 PDF</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+    <style>
+        :root {
+            --accent:#7c5cfc;--green:#10b981;--red:#ef4444;
+            --bg:#0f0f14;--bg-card:#1a1a24;--border:#2a2a3a;
+            --text:#e2e2e8;--dim:#8888a0;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            background: var(--bg);
+            color: var(--text);
+            font-family: 'Inter','Segoe UI',system-ui,sans-serif;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+
+        .topbar {
+            background: var(--bg-card);
+            border-bottom: 1px solid var(--border);
+            padding: 12px 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-shrink: 0;
+            gap: 12px;
+        }
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-weight: 700;
+            font-size: .95rem;
+            color: var(--accent);
+        }
+        .brand i { font-size: 1.1rem; }
+        .fname {
+            font-size: .78rem;
+            color: var(--dim);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 260px;
+        }
+        .actions { display: flex; gap: 8px; align-items: center; flex-shrink: 0; }
+
+        .btn-dl {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: var(--accent);
+            color: #fff;
+            text-decoration: none;
+            border: none;
+            border-radius: 8px;
+            padding: 8px 18px;
+            font-weight: 600;
+            font-size: .85rem;
+            cursor: pointer;
+            transition: background .15s;
+        }
+        .btn-dl:hover { background: #6b4de6; color: #fff; }
+
+        .pdf-wrap {
+            flex: 1;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+        iframe {
+            flex: 1;
+            width: 100%;
+            border: none;
+            background: #fff;
+        }
+
+        .btn-view {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: transparent;
+            color: var(--accent);
+            text-decoration: none;
+            border: 1px solid var(--accent);
+            border-radius: 8px;
+            padding: 8px 18px;
+            font-weight: 600;
+            font-size: .85rem;
+            cursor: pointer;
+            transition: background .15s;
+        }
+        .btn-view:hover { background: rgba(124,92,252,.15); color: var(--accent); }
+
+        /* 모바일 fallback */
+        .mobile-fallback {
+            display: none;
+            flex: 1;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            gap: 16px;
+            padding: 40px 24px;
+            text-align: center;
+        }
+        .mobile-fallback i { font-size: 3rem; color: var(--red); }
+        .mobile-fallback p { color: var(--dim); font-size: .9rem; line-height: 1.6; }
+
+        @media (max-width: 640px) {
+            .fname { display: none; }
+            .btn-dl { padding: 7px 14px; font-size: .8rem; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="topbar">
+    <div style="display:flex;align-items:center;gap:12px;min-width:0">
+        <div class="brand">
+            <i class="bi bi-binoculars"></i> KSPD OSINT
+        </div>
+        <div class="fname" id="fnameEl">{{ filename }}</div>
+    </div>
+    <div class="actions">
+        <a id="dlBtn" href="/api/intel/pdf/{{ filename }}" download="{{ filename }}" class="btn-dl">
+            <i class="bi bi-download"></i> 다운로드
+        </a>
+    </div>
+</div>
+
+<div class="pdf-wrap" id="pdfWrap">
+    <iframe id="pdfFrame" src="/api/intel/pdf/view/{{ filename }}"></iframe>
+</div>
+
+<!-- 모바일/브라우저에서 iframe PDF 차단 시 fallback -->
+<div class="mobile-fallback" id="mobileFallback">
+    <i class="bi bi-file-pdf-fill"></i>
+    <p>모바일 브라우저에서는 인라인 미리보기가 지원되지 않습니다.<br>아래 버튼으로 PDF를 열거나 다운로드하세요.</p>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center">
+        <a href="/api/intel/pdf/view/{{ filename }}" target="_blank" class="btn-view" style="font-size:.9rem;padding:11px 22px">
+            <i class="bi bi-eye"></i> PDF 열기
+        </a>
+        <a href="/api/intel/pdf/{{ filename }}" download="{{ filename }}" class="btn-dl" style="font-size:.9rem;padding:11px 22px">
+            <i class="bi bi-download"></i> 다운로드
+        </a>
+    </div>
+</div>
+
+<script>
+    // iframe 로드 실패 시 fallback 표시
+    const frame = document.getElementById('pdfFrame');
+    const wrap  = document.getElementById('pdfWrap');
+    const fb    = document.getElementById('mobileFallback');
+
+    frame.addEventListener('error', () => {
+        wrap.style.display = 'none';
+        fb.style.display = 'flex';
+    });
+
+    // iOS Safari 등 모바일은 iframe PDF 지원 안 함
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+    const isAndroid = /Android/.test(navigator.userAgent) && /Mobile/.test(navigator.userAgent);
+    if (isIOS || isAndroid) {
+        wrap.style.display = 'none';
+        fb.style.display = 'flex';
+    }
+</script>
+</body>
+</html>

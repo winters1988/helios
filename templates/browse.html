@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="ko" data-bs-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OSINT - 벡터 DB 조회</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+    <style>
+        :root {
+            --accent: #7c5cfc; --accent-glow: rgba(124,92,252,0.2);
+            --green: #10b981; --orange: #f59e0b; --red: #ef4444; --blue: #3b82f6;
+            --bg: #0f0f14; --bg-card: #1a1a24; --bg-el: #22222e; --border: #2a2a3a;
+            --text: #e2e2e8; --dim: #8888a0;
+        }
+        *{box-sizing:border-box}
+        body{background:var(--bg);color:var(--text);font-family:'Inter','Segoe UI',system-ui,sans-serif;margin:0}
+
+        .sidebar{position:fixed;left:0;top:0;bottom:0;width:220px;background:var(--bg-card);border-right:1px solid var(--border);display:flex;flex-direction:column;z-index:100}
+        .sidebar-brand{padding:18px 16px;font-size:1.1rem;font-weight:700;color:var(--accent);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px}
+        .sidebar-nav{flex:1;padding:8px 0}
+        .sidebar-nav a{display:flex;align-items:center;gap:10px;padding:10px 16px;color:var(--dim);text-decoration:none;font-size:.85rem;border-left:3px solid transparent;transition:.15s}
+        .sidebar-nav a:hover{color:var(--text);background:var(--bg-el)}
+        .sidebar-nav a.active{color:var(--accent);background:var(--accent-glow);border-left-color:var(--accent)}
+        .sidebar-nav a i{font-size:1rem;width:18px;text-align:center}
+        .sidebar-footer{padding:14px 16px;border-top:1px solid var(--border);font-size:.72rem;color:var(--dim)}
+        .sidebar-footer .sv{color:var(--green);font-weight:600;font-size:.9rem}
+
+        .main{margin-left:220px;min-height:100vh;display:flex;flex-direction:column}
+        .topbar{height:52px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;padding:0 24px;background:var(--bg-card);flex-shrink:0}
+        .topbar h4{margin:0;font-size:1rem;font-weight:600}
+        .content{padding:20px 24px;flex:1;overflow-y:auto}
+
+        /* Stat bar */
+        .stat-bar{display:flex;gap:20px;margin-bottom:16px;font-size:.82rem;color:var(--dim);flex-wrap:wrap}
+        .stat-bar .si{display:flex;align-items:center;gap:4px}
+        .stat-bar .si strong{color:var(--text)}
+
+        /* Filter bar */
+        .filter-bar{display:flex;gap:10px;align-items:center;margin-bottom:16px;flex-wrap:wrap}
+        .filter-bar select,.filter-bar input{background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:7px 12px;font-size:.82rem}
+        .filter-bar select:focus,.filter-bar input:focus{border-color:var(--accent);outline:none;box-shadow:0 0 0 3px var(--accent-glow)}
+        .filter-bar .btn-f{background:var(--accent);color:#fff;border:none;border-radius:8px;padding:7px 16px;font-size:.82rem;font-weight:600;cursor:pointer}
+        .filter-bar .btn-f:hover{background:#6b4de6}
+
+        /* Article list */
+        .art-list{display:flex;flex-direction:column;gap:8px}
+        .art-item{background:var(--bg-card);border:1px solid var(--border);border-radius:10px;overflow:hidden;transition:.15s;cursor:pointer}
+        .art-item:hover{border-color:var(--accent)}
+        .art-item.expanded{border-color:var(--accent);box-shadow:0 2px 12px var(--accent-glow)}
+
+        .art-row{display:flex;align-items:center;padding:12px 16px;gap:12px}
+        .art-src{font-size:.7rem;font-weight:600;color:var(--accent);background:var(--accent-glow);padding:2px 8px;border-radius:4px;flex-shrink:0;min-width:60px;text-align:center}
+        .art-title{flex:1;font-size:.88rem;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+        .art-meta{font-size:.72rem;color:var(--dim);flex-shrink:0;display:flex;gap:12px;align-items:center}
+        .art-chunks{background:var(--bg-el);border:1px solid var(--border);padding:2px 6px;border-radius:4px;font-size:.68rem;color:var(--dim)}
+
+        /* Expanded content */
+        .art-detail{display:none;border-top:1px solid var(--border);padding:16px}
+        .art-item.expanded .art-detail{display:block}
+
+        .chunk-list{display:flex;flex-direction:column;gap:8px;margin-top:10px}
+        .chunk-box{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:12px;font-size:.82rem;line-height:1.6;position:relative}
+        .chunk-box .chunk-idx{position:absolute;top:6px;right:8px;font-size:.68rem;color:var(--dim);background:var(--bg-el);padding:1px 6px;border-radius:3px}
+        .chunk-box .vec-preview{margin-top:8px;font-size:.68rem;color:var(--dim);font-family:monospace;word-break:break-all}
+
+        .art-summary{font-size:.82rem;color:var(--dim);margin-bottom:8px;line-height:1.5}
+        .art-link{font-size:.78rem;color:var(--accent);text-decoration:none}
+        .art-link:hover{text-decoration:underline}
+        .art-cats{display:flex;gap:4px;flex-wrap:wrap;margin-bottom:8px}
+        .art-cat{font-size:.68rem;background:var(--bg-el);color:var(--dim);padding:2px 6px;border-radius:3px}
+
+        /* Pagination */
+        .pager{display:flex;justify-content:center;gap:8px;margin-top:20px;padding-bottom:20px}
+        .pager button{background:var(--bg-card);border:1px solid var(--border);color:var(--dim);border-radius:6px;padding:6px 14px;font-size:.82rem;cursor:pointer}
+        .pager button:hover{border-color:var(--accent);color:var(--accent)}
+        .pager button:disabled{opacity:.4;cursor:default}
+        .pager .pg-info{display:flex;align-items:center;font-size:.82rem;color:var(--dim)}
+
+        .empty{text-align:center;padding:60px 20px;color:var(--dim)} .empty i{font-size:2.5rem;margin-bottom:8px;display:block}
+        .badge-s{background:var(--green);font-size:.68rem;padding:1px 6px;border-radius:3px;color:#fff}
+
+        .sidebar-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:99}
+        .sidebar-overlay.open{display:block}
+        .menu-btn{display:none;background:none;border:none;color:var(--text);font-size:1.4rem;cursor:pointer;padding:4px 10px;line-height:1;flex-shrink:0}
+        .topbar-left{display:flex;align-items:center}
+        .topbar-right{display:flex;gap:6px;align-items:center;flex-shrink:0}
+
+        @media(max-width:1024px){
+            .sidebar{transform:translateX(-100%);transition:transform .25s;z-index:200}
+            .sidebar.open{transform:translateX(0)}
+            .main{margin-left:0}
+            .menu-btn{display:inline-flex;align-items:center}
+            .topbar{padding:0 10px}
+            .content{padding:12px 10px}
+            .filter-bar{flex-wrap:wrap}
+            .filter-bar select,.filter-bar input{flex:1;min-width:120px}
+            .art-meta{display:none}
+            .art-title{white-space:normal;font-size:.82rem}
+        }
+    </style>
+</head>
+<body>
+
+<div class="sidebar-overlay" id="sidebarOverlay" onclick="closeSidebar()"></div>
+<div class="sidebar" id="sidebar">
+    <div class="sidebar-brand"><i class="bi bi-binoculars"></i> OSINT Recon</div>
+    <nav class="sidebar-nav">
+        <a href="/"><i class="bi bi-activity"></i> 대시보드</a>
+        <a href="/browse" class="active"><i class="bi bi-database"></i> 벡터 DB</a>
+        <a href="/chat"><i class="bi bi-chat-dots"></i> AI 채팅</a>
+        <a href="/intel"><i class="bi bi-radar"></i> 인텔 브리핑</a>
+        <a href="/osint-settings"><i class="bi bi-sliders2"></i> 수집설정</a>
+    </nav>
+    <div class="sidebar-footer">
+        <div>벡터 DB</div>
+        <div class="sv" id="sbVec">-</div>
+        <div style="margin-top:2px">벡터 저장됨</div>
+        <a href="/logout" style="display:block;margin-top:10px;color:var(--dim);font-size:.72rem;text-decoration:none"><i class="bi bi-box-arrow-left me-1"></i>로그아웃</a>
+    </div>
+</div>
+
+<div class="main">
+    <div class="topbar">
+        <div class="topbar-left">
+            <button class="menu-btn" onclick="toggleSidebar()"><i class="bi bi-list"></i></button>
+            <h4 style="margin:0;font-size:1rem;font-weight:600"><i class="bi bi-database me-2" style="color:var(--accent)"></i>벡터 DB 조회</h4>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center">
+            <span style="font-size:.78rem;color:var(--dim)" id="totalInfo">-</span>
+            <button onclick="resetDB()" style="background:transparent;border:1px solid var(--red);color:var(--red);border-radius:6px;padding:4px 10px;font-size:.72rem;cursor:pointer" title="전체 초기화">
+                <i class="bi bi-trash me-1"></i>DB 초기화
+            </button>
+        </div>
+    </div>
+
+    <div class="content">
+        <!-- Stats -->
+        <div class="stat-bar" id="statBar"></div>
+
+        <!-- Filter -->
+        <div class="filter-bar">
+            <select id="filterSource"><option value="">전체 소스</option></select>
+            <input type="text" id="filterSearch" placeholder="시맨틱 검색..." style="flex:1;min-width:200px" onkeydown="if(event.key==='Enter')doSearch()">
+            <button class="btn-f" onclick="doSearch()"><i class="bi bi-search me-1"></i>검색</button>
+            <button class="btn-f" onclick="loadArticles()" style="background:var(--bg-el);color:var(--dim)"><i class="bi bi-arrow-clockwise me-1"></i>새로고침</button>
+        </div>
+
+        <!-- Article list -->
+        <div class="art-list" id="artList"></div>
+
+        <!-- Pagination -->
+        <div class="pager" id="pager"></div>
+    </div>
+</div>
+
+<script>
+let currentOffset = 0;
+const PAGE_SIZE = 20;
+let isSearchMode = false;
+
+async function loadArticles(offset = 0) {
+    isSearchMode = false;
+    currentOffset = offset;
+    const source = document.getElementById('filterSource').value;
+    const params = new URLSearchParams({offset, limit: PAGE_SIZE});
+    if (source) params.set('source', source);
+
+    const r = await fetch(`/api/news/browse?${params}`).then(r=>r.json());
+    renderArticles(r.articles || [], r.total_articles || 0, offset);
+}
+
+async function doSearch() {
+    const q = document.getElementById('filterSearch').value.trim();
+    if (!q) { loadArticles(); return; }
+
+    isSearchMode = true;
+    const source = document.getElementById('filterSource').value;
+    const body = {query: q, top_k: 30};
+    if (source) body.sources = [source];
+
+    const r = await fetch('/api/news/search', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}).then(r=>r.json());
+
+    if (r.success) {
+        renderSearchResults(r.results || []);
+    }
+}
+
+function renderArticles(articles, total, offset) {
+    const el = document.getElementById('artList');
+    document.getElementById('totalInfo').textContent = `전체 ${total}건`;
+
+    if (!articles.length) {
+        el.innerHTML = '<div class="empty"><i class="bi bi-database-slash"></i><div>저장된 기사가 없습니다</div><div style="font-size:.82rem;margin-top:4px">대시보드에서 뉴스를 수집하세요</div></div>';
+        document.getElementById('pager').innerHTML = '';
+        return;
+    }
+
+    el.innerHTML = articles.map((a, i) => {
+        const pub = a.published ? formatDate(a.published) : '';
+        const cats = (a.categories||[]).map(c => `<span class="art-cat">${esc(c)}</span>`).join('');
+
+        return `<div class="art-item" id="art_${i}">
+            <div class="art-row" onclick="toggleArticle('${a.article_id}', ${i})">
+                <span class="art-src">${esc(a.source)}</span>
+                <span class="art-title">${esc(a.title)}</span>
+                <div class="art-meta">
+                    <span>${pub}</span>
+                    <span class="art-chunks"><i class="bi bi-layers me-1"></i>${a.total_chunks||a.chunks?.length||0}청크</span>
+                    <i class="bi bi-chevron-down" style="font-size:.7rem"></i>
+                </div>
+            </div>
+            <div class="art-detail" id="detail_${i}">
+                <div class="art-cats">${cats}</div>
+                <div class="art-summary">${esc(a.summary)}</div>
+                <a href="${a.url}" target="_blank" class="art-link"><i class="bi bi-box-arrow-up-right me-1"></i>원문 보기</a>
+                <div class="chunk-list" id="chunks_${i}">
+                    <div style="text-align:center;color:var(--dim);font-size:.8rem;padding:10px">로딩 중...</div>
+                </div>
+            </div>
+        </div>`;
+    }).join('');
+
+    // Pagination
+    const totalPages = Math.ceil(total / PAGE_SIZE);
+    const currentPage = Math.floor(offset / PAGE_SIZE) + 1;
+    let pagerHtml = `<button ${offset===0?'disabled':''} onclick="loadArticles(${offset-PAGE_SIZE})"><i class="bi bi-chevron-left"></i></button>`;
+    pagerHtml += `<span class="pg-info">${currentPage} / ${totalPages}</span>`;
+    pagerHtml += `<button ${offset+PAGE_SIZE>=total?'disabled':''} onclick="loadArticles(${offset+PAGE_SIZE})"><i class="bi bi-chevron-right"></i></button>`;
+    document.getElementById('pager').innerHTML = pagerHtml;
+}
+
+function renderSearchResults(results) {
+    const el = document.getElementById('artList');
+    document.getElementById('totalInfo').textContent = `검색 결과 ${results.length}건`;
+    document.getElementById('pager').innerHTML = '';
+
+    if (!results.length) {
+        el.innerHTML = '<div class="empty"><i class="bi bi-search"></i><div>검색 결과가 없습니다</div></div>';
+        return;
+    }
+
+    el.innerHTML = results.map((a, i) => {
+        const scorePct = Math.round(a.score * 100);
+        return `<div class="art-item">
+            <div class="art-row" onclick="toggleArticle('${a.article_id}', ${i})">
+                <span class="art-src">${esc(a.source)}</span>
+                <span class="art-title">${esc(a.title)}</span>
+                <div class="art-meta">
+                    <span class="badge-s">유사도 ${scorePct}%</span>
+                    <i class="bi bi-chevron-down" style="font-size:.7rem"></i>
+                </div>
+            </div>
+            <div class="art-detail" id="detail_${i}">
+                <div class="art-summary" style="background:var(--bg);padding:10px;border-radius:6px;border-left:3px solid var(--accent)">${esc(a.chunk_text?.substring(0, 400)||'')}</div>
+                <a href="${a.url}" target="_blank" class="art-link" style="margin-top:8px;display:inline-block"><i class="bi bi-box-arrow-up-right me-1"></i>원문 보기</a>
+                <div class="chunk-list" id="chunks_${i}">
+                    <div style="text-align:center;color:var(--dim);font-size:.8rem;padding:10px">로딩 중...</div>
+                </div>
+            </div>
+        </div>`;
+    }).join('');
+}
+
+async function toggleArticle(articleId, idx) {
+    const item = document.getElementById(`art_${idx}`) || document.querySelectorAll('.art-item')[idx];
+    if (!item) return;
+    const wasExpanded = item.classList.contains('expanded');
+    // Close all
+    document.querySelectorAll('.art-item').forEach(el => el.classList.remove('expanded'));
+    if (wasExpanded) return;
+
+    item.classList.add('expanded');
+
+    // Load chunks
+    const chunksEl = document.getElementById(`chunks_${idx}`);
+    try {
+        const r = await fetch(`/api/news/article/${articleId}`).then(r=>r.json());
+        if (r.success && r.article) {
+            const art = r.article;
+            chunksEl.innerHTML = `<div style="font-size:.78rem;color:var(--dim);margin-bottom:8px"><strong>${art.total_chunks}</strong>개 청크 | 벡터 차원: 384</div>` +
+                art.chunks.map(c => `
+                    <div class="chunk-box">
+                        <span class="chunk-idx">청크 #${c.index+1}</span>
+                        ${esc(c.text)}
+                        ${c.vector_preview?.length ? `<div class="vec-preview"><i class="bi bi-vector-pen me-1"></i>벡터: [${c.vector_preview.map(v=>v.toFixed(4)).join(', ')}, ...]</div>` : ''}
+                    </div>
+                `).join('');
+        } else {
+            chunksEl.innerHTML = '<div style="color:var(--red);font-size:.82rem">상세 정보를 불러올 수 없습니다.</div>';
+        }
+    } catch(e) {
+        chunksEl.innerHTML = '<div style="color:var(--red);font-size:.82rem">오류: '+e.message+'</div>';
+    }
+}
+
+async function loadSourceFilter() {
+    const sel = document.getElementById('filterSource');
+
+    // RSS 소스
+    const r = await fetch('/api/sources/detail').then(r=>r.json());
+    for (const name of Object.keys(r.sources||{})) {
+        const opt = document.createElement('option');
+        opt.value = name; opt.textContent = name;
+        sel.appendChild(opt);
+    }
+
+    // 벡터 DB에 실제 존재하는 소스 목록으로 KSPD-OSINT 등 추가
+    try {
+        const browse = await fetch('/api/news/browse?limit=1').then(r=>r.json());
+        if (browse.success) {
+            // 전체 스크롤로 unique source 수집
+            const all = await fetch('/api/news/browse?limit=5000').then(r=>r.json());
+            const existing = new Set([...sel.options].map(o=>o.value));
+            const dbSources = [...new Set((all.articles||[]).map(a=>a.source))];
+            for (const src of dbSources.sort()) {
+                if (!existing.has(src)) {
+                    const opt = document.createElement('option');
+                    opt.value = src;
+                    opt.textContent = src === 'KSPD-OSINT' ? '🛰 KSPD-OSINT 인텔리전스' : src;
+                    sel.appendChild(opt);
+                }
+            }
+        }
+    } catch(e) {}
+}
+
+async function loadDBStats() {
+    try {
+        const [stats, browse] = await Promise.all([
+            fetch('/api/news/stats').then(r=>r.json()),
+            fetch('/api/news/browse?limit=1').then(r=>r.json()),
+        ]);
+        document.getElementById('sbVec').textContent = stats.total_vectors||0;
+        const bar = document.getElementById('statBar');
+        bar.innerHTML = `
+            <div class="si"><i class="bi bi-layers" style="color:var(--accent)"></i>벡터: <strong>${stats.total_vectors||0}</strong></div>
+            <div class="si"><i class="bi bi-newspaper" style="color:var(--orange)"></i>기사: <strong>${browse.total_articles||0}</strong></div>
+            <div class="si"><i class="bi bi-cpu" style="color:var(--green)"></i>모델: <strong>MiniLM-L12</strong></div>
+            <div class="si"><i class="bi bi-rulers" style="color:var(--blue)"></i>차원: <strong>384</strong></div>
+            <div class="si"><i class="bi bi-hdd" style="color:var(--dim)"></i>저장: <strong>로컬 (${esc(stats.storage_path||'')})</strong></div>
+        `;
+    } catch(e) {}
+}
+
+async function resetDB() {
+    if (!confirm('벡터 DB의 모든 데이터를 삭제하시겠습니까?\n이 작업은 되돌릴 수 없습니다.')) return;
+    await fetch('/api/news/reset', {method:'POST'});
+    loadArticles();
+    loadDBStats();
+}
+
+function formatDate(s) {
+    try {
+        const d = new Date(s);
+        if (isNaN(d)) return s.substring(0, 16);
+        return d.toLocaleDateString('ko-KR', {month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'});
+    } catch { return s; }
+}
+
+function esc(s) { if(!s)return''; const d=document.createElement('div'); d.textContent=s; return d.innerHTML; }
+
+// Init
+loadSourceFilter();
+loadDBStats();
+loadArticles();
+
+function toggleSidebar() {
+    document.getElementById('sidebar').classList.toggle('open');
+    document.getElementById('sidebarOverlay').classList.toggle('open');
+}
+function closeSidebar() {
+    document.getElementById('sidebar').classList.remove('open');
+    document.getElementById('sidebarOverlay').classList.remove('open');
+}
+</script>
+</body>
+</html>
