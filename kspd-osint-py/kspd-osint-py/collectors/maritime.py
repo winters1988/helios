@@ -1,6 +1,6 @@
 """
-KSPD OSINT Engine — 군함 AIS 수집기 (AISStream.io)
-WebSocket으로 감시 지역별 AIS 스냅샷 수집 → 군함 식별
+KSPD OSINT Engine - 군함 AIS 수집기 (AISStream.io)
+WebSocket으로 감시 지역별 AIS 스냅샷 수집 -> 군함 식별
 
 ※ 실행 전: pip install websocket-client
 """
@@ -27,7 +27,7 @@ def collect_region_snapshot(region_key, region):
         return None
 
     if not AISSTREAM_API_KEY:
-        print(f"  [Skip] {region_key} — AISSTREAM_API_KEY 미설정")
+        print(f"  [Skip] {region_key} - AISSTREAM_API_KEY 미설정")
         return None
 
     vessels = {}
@@ -129,7 +129,7 @@ NAVAL_NAME_KEYWORDS = (
     "FRIGATE", "DESTROYER", "CORVETTE", "MINESWEEP",
 )
 
-# MMSI MID → 국가 매핑 (주요 감시 대상국)
+# MMSI MID -> 국가 매핑 (주요 감시 대상국)
 MID_TO_COUNTRY = {
     "201": "AL", "211": "DE", "212": "CY", "215": "MT", "219": "DK",
     "220": "DK", "224": "ES", "225": "ES", "226": "FR", "227": "FR",
@@ -220,7 +220,7 @@ def classify_vessel(v):
     speed = v.get("speed_kts", 0) or 0
     if length >= 80 and speed >= 18:
         if ship_type and 60 <= ship_type <= 89:
-            pass  # 상선 — CIVILIAN 유지
+            pass  # 상선 - CIVILIAN 유지
         else:
             return {**v, "classification": "POSSIBLE_NAVAL", "confidence": "C-3",
                     "assessment": f"대형 고속 선박 ({length}m, {speed}kts)"}
@@ -230,10 +230,10 @@ def classify_vessel(v):
 
 def collect_maritime():
     """해상 AIS 전체 수집"""
-    print("\n[Maritime] ══ 해상 AIS 수집 시작 ══")
+    print("\n[Maritime] == 해상 AIS 수집 시작 ==")
 
     if not AISSTREAM_API_KEY:
-        print("[Maritime] ⚠ AISSTREAM_API_KEY 미설정 — 건너뜀")
+        print("[Maritime] ⚠ AISSTREAM_API_KEY 미설정 - 건너뜀")
         return {"collection_time": datetime.now(timezone.utc).isoformat(),
                 "source": "AISStream.io (SKIPPED)", "regions": [], "alerts": [],
                 "total_naval_detected": 0, "dark_ships": []}
@@ -292,7 +292,7 @@ def collect_maritime():
                 summary["alerts"].append({
                     "type": v["classification"],
                     "priority": "HIGH" if v.get("type") == "carrier" else "ELEVATED",
-                    "detail": f"{v.get('name',v.get('ship_name','?'))} ({v.get('nation','?')}) — {rd['regionName']} AIS 포착",
+                    "detail": f"{v.get('name',v.get('ship_name','?'))} ({v.get('nation','?')}) - {rd['regionName']} AIS 포착",
                 })
 
     # 저장
@@ -303,7 +303,7 @@ def collect_maritime():
     with open(out_path, "w", encoding="utf-8") as f:
         json.dump(summary, f, ensure_ascii=False, indent=2)
 
-    print(f"[Maritime] ══ 완료: 스캔 {summary['total_vessels_scanned']}척, 군함 {summary['total_naval_detected']}척 ══")
+    print(f"[Maritime] == 완료: 스캔 {summary['total_vessels_scanned']}척, 군함 {summary['total_naval_detected']}척 ==")
     return summary
 
 

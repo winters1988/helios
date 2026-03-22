@@ -1,6 +1,6 @@
 """
-KSPD OSINT Engine — 군용기 수집기 (OpenSky Network)
-OpenSky REST API로 감시 지역별 항공기 데이터 수집 → 군용기 필터링
+KSPD OSINT Engine - 군용기 수집기 (OpenSky Network)
+OpenSky REST API로 감시 지역별 항공기 데이터 수집 -> 군용기 필터링
 """
 
 import requests
@@ -47,7 +47,7 @@ def get_opensky_token():
             print("[Aviation] OpenSky OAuth2 토큰 발급 성공")
             return token
         else:
-            print(f"[Aviation] OpenSky 토큰 실패: HTTP {resp.status_code} — {resp.text[:200]}")
+            print(f"[Aviation] OpenSky 토큰 실패: HTTP {resp.status_code} - {resp.text[:200]}")
             return None
     except Exception as e:
         print(f"[Aviation] OpenSky 토큰 오류: {e}")
@@ -70,7 +70,7 @@ def fetch_region(region_key, region, token=None):
     try:
         resp = requests.get(url, params=params, headers=headers, timeout=30)
         if resp.status_code == 429:
-            print(f"  [Rate Limit] {region_key} — 10초 대기 후 재시도")
+            print(f"  [Rate Limit] {region_key} - 10초 대기 후 재시도")
             time.sleep(12)
             resp = requests.get(url, params=params, headers=headers, timeout=30)
 
@@ -140,7 +140,7 @@ def is_military(ac):
     if ac.get("squawk") in ("7500", "7600", "7700"):
         return True
 
-    # 3. 고고도 + 저속 (ISR 패턴) — 콜사인 없는 경우만
+    # 3. 고고도 + 저속 (ISR 패턴) - 콜사인 없는 경우만
     alt = ac.get("altitude_m")
     vel = ac.get("velocity_ms")
     if alt and alt > 12000 and vel and vel < 200:
@@ -163,13 +163,13 @@ def assess_aircraft(ac):
     """개별 항공기 평가"""
     cs = (ac.get("callsign") or "").upper()
     if any(p in cs for p in ("DUKE", "ETHYL", "IRON")):
-        return "공중급유기 → 전투기 작전 가능"
+        return "공중급유기 -> 전투기 작전 가능"
     if "FORTE" in cs:
         return "RQ-4 Global Hawk 고고도 정찰"
     if "JAKE" in cs:
         return "P-8A 해상초계기"
     if any(p in cs for p in ("RCH", "REACH")):
-        return "전략수송기 → 병력/장비 전개"
+        return "전략수송기 -> 병력/장비 전개"
     if any(p in cs for p in ("DOOM", "BONE")):
         return "전략폭격기 활동"
     if ac.get("squawk") == "7700":
@@ -181,7 +181,7 @@ def assess_aircraft(ac):
 
 def collect_aviation():
     """전체 항공 데이터 수집 실행"""
-    print("\n[Aviation] ══ 군용기 데이터 수집 시작 ══")
+    print("\n[Aviation] == 군용기 데이터 수집 시작 ==")
     print(f"[Aviation] 감시 지역: {len(WATCH_REGIONS)}개")
 
     token = get_opensky_token()
@@ -251,7 +251,7 @@ def collect_aviation():
     with open(out_path, "w", encoding="utf-8") as f:
         json.dump(summary, f, ensure_ascii=False, indent=2)
 
-    print(f"[Aviation] ══ 완료: 군용기 {summary['total_military_detected']}대, 알림 {len(summary['alerts'])}건 ══")
+    print(f"[Aviation] == 완료: 군용기 {summary['total_military_detected']}대, 알림 {len(summary['alerts'])}건 ==")
     print(f"[Aviation] 저장: {out_path}")
     return summary
 

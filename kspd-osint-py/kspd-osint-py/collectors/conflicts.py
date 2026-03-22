@@ -1,7 +1,7 @@
 """
-KSPD OSINT Engine — 분쟁 이벤트 수집기
-1. GDELT Project (무료, 키 불필요) — 군사/분쟁 뉴스
-2. ACLED (OAuth 인증) — 분쟁 이벤트 데이터
+KSPD OSINT Engine - 분쟁 이벤트 수집기
+1. GDELT Project (무료, 키 불필요) - 군사/분쟁 뉴스
+2. ACLED (OAuth 인증) - 분쟁 이벤트 데이터
 """
 
 import requests
@@ -24,7 +24,7 @@ def _gdelt_fetch_batch(session, queries, timespan="24h", sourcelang=""):
 
     for q in queries:
         if consecutive_fails >= 3:
-            print(f"  GDELT 연속 3회 실패 — 나머지 쿼리 건너뜀 (timespan={timespan})")
+            print(f"  GDELT 연속 3회 실패 - 나머지 쿼리 건너뜀 (timespan={timespan})")
             break
 
         for attempt in range(2):
@@ -57,13 +57,13 @@ def _gdelt_fetch_batch(session, queries, timespan="24h", sourcelang=""):
                 print(f"  GDELT '{q[:30]}' 실패: {e}")
                 consecutive_fails += 1
                 break
-        time.sleep(1)
+        time.sleep(6)
 
     return articles
 
 
 def fetch_gdelt():
-    """GDELT API — 군사/분쟁 관련 최신 뉴스 수집 (무료, 키 불필요)"""
+    """GDELT API - 군사/분쟁 관련 최신 뉴스 수집 (무료, 키 불필요)"""
     print("[Conflicts] GDELT 뉴스 수집...")
 
     # 1단: 핵심 분쟁 쿼리 (영어 우선)
@@ -92,7 +92,7 @@ def fetch_gdelt():
         "우크라이나 전선 러시아",
     ]
 
-    # 4단: 공급망 특화 쿼리 (Tier 4 — 산업/원자재/물류)
+    # 4단: 공급망 특화 쿼리 (Tier 4 - 산업/원자재/물류)
     supply_chain_queries = [
         "semiconductor supply chain disruption",
         "rare earth export control China",
@@ -148,13 +148,13 @@ def fetch_gdelt():
     # 5차: 영어 5건 미만이면 전체 언어 보조
     en_count = len([a for a in all_articles if a.get("language") == "English"])
     if en_count < 5:
-        print(f"  GDELT 영어 {en_count}건 부족 — 전체 언어 보조 수집")
+        print(f"  GDELT 영어 {en_count}건 부족 - 전체 언어 보조 수집")
         supplement = _gdelt_fetch_batch(session, core_queries[:3], "24h")
         all_articles.extend(supplement)
 
     # 5차: 여전히 5건 미만이면 48h로 확대
     if len(all_articles) < 5:
-        print(f"  GDELT 24h 결과 {len(all_articles)}건 — 48h로 확대 재시도")
+        print(f"  GDELT 24h 결과 {len(all_articles)}건 - 48h로 확대 재시도")
         fallback = _gdelt_fetch_batch(session, core_queries[:4], "48h", sourcelang="english")
         all_articles.extend(fallback)
 
@@ -329,7 +329,7 @@ def fetch_acled(token, countries, theater):
             print(f"  ACLED {theater}: {len(events)}건")
             return {"theater": theater, "events": events}
         elif resp.status_code == 403:
-            print(f"  ACLED {theater}: 접근 거부 (403) — Research 레벨 이상 계정 필요 (https://acleddata.com/myacled-faqs)")
+            print(f"  ACLED {theater}: 접근 거부 (403) - Research 레벨 이상 계정 필요 (https://acleddata.com/myacled-faqs)")
             return None
         else:
             print(f"  ACLED {theater}: HTTP {resp.status_code}")
@@ -351,7 +351,7 @@ EVENT_TYPE_KR = {
 
 def collect_conflicts():
     """전체 분쟁 데이터 수집"""
-    print("\n[Conflicts] ══ 분쟁 이벤트 수집 시작 ══")
+    print("\n[Conflicts] == 분쟁 이벤트 수집 시작 ==")
 
     # GDELT (항상 가능)
     gdelt_articles = fetch_gdelt()
@@ -369,12 +369,12 @@ def collect_conflicts():
             result = fetch_acled(token, countries, theater)
             if result is None and not acled_failed:
                 acled_failed = True
-                print("[Conflicts] ⚠ ACLED 접근 실패 — 나머지 theater 건너뜀, GDELT만 사용")
+                print("[Conflicts] ⚠ ACLED 접근 실패 - 나머지 theater 건너뜀, GDELT만 사용")
             else:
                 acled_results.append(result)
             time.sleep(2)
     else:
-        print("[Conflicts] ⚠ ACLED 미설정 — GDELT만 사용")
+        print("[Conflicts] ⚠ ACLED 미설정 - GDELT만 사용")
 
     # 분석
     summary = {
@@ -433,7 +433,7 @@ def collect_conflicts():
     with open(out_path, "w", encoding="utf-8") as f:
         json.dump(summary, f, ensure_ascii=False, indent=2)
 
-    print(f"[Conflicts] ══ 완료: ACLED {summary['event_statistics']['total_events']}건, GDELT {len(gdelt_articles)}건 ══")
+    print(f"[Conflicts] == 완료: ACLED {summary['event_statistics']['total_events']}건, GDELT {len(gdelt_articles)}건 ==")
     return summary
 
 

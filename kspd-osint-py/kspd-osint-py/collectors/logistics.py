@@ -1,5 +1,5 @@
 """
-KSPD OSINT Engine — 해운 물류 데이터 수집기
+KSPD OSINT Engine - 해운 물류 데이터 수집기
 컨테이너 운임지수(SCFI/BDI), 주요 항만 현황
 
 데이터 소스:
@@ -18,9 +18,9 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 
-# ══════════════════════════════════════════════════
+# ==================================================
 # 주요 해운 지수 참조 (GDELT 뉴스에서 실시간 업데이트)
-# ══════════════════════════════════════════════════
+# ==================================================
 
 SHIPPING_INDICES = {
     "SCFI": {
@@ -113,7 +113,7 @@ def _fetch_logistics_news(session):
                     })
         except Exception:
             pass
-        time.sleep(1)
+        time.sleep(6)
 
     # 중복 제거
     seen = set()
@@ -201,7 +201,7 @@ def _generate_alerts(port_status, news_articles):
         alerts.append({
             "type": "CRITICAL_ROUTE_DISRUPTION",
             "priority": "HIGH",
-            "detail": f"주요 해상 교통로(홍해/수에즈/호르무즈) 관련 뉴스 {critical_count}건 — 항로 우회/차질 가능성",
+            "detail": f"주요 해상 교통로(홍해/수에즈/호르무즈) 관련 뉴스 {critical_count}건 - 항로 우회/차질 가능성",
         })
 
     return alerts
@@ -209,7 +209,7 @@ def _generate_alerts(port_status, news_articles):
 
 def collect_logistics():
     """전체 해운 물류 데이터 수집"""
-    print("\n[Logistics] ══ 해운 물류 데이터 수집 시작 ══")
+    print("\n[Logistics] == 해운 물류 데이터 수집 시작 ==")
 
     session = requests.Session()
 
@@ -264,7 +264,7 @@ def collect_logistics():
     with open(out_path, "w", encoding="utf-8") as f:
         json.dump(summary, f, ensure_ascii=False, indent=2)
 
-    print(f"[Logistics] ══ 완료: 뉴스 {len(news_articles)}건, 항만 {len(port_status)}개 감지, 알림 {len(alerts)}건 ══")
+    print(f"[Logistics] == 완료: 뉴스 {len(news_articles)}건, 항만 {len(port_status)}개 감지, 알림 {len(alerts)}건 ==")
     return summary
 
 

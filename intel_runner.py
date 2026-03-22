@@ -62,6 +62,14 @@ MODULE_LABELS = {
 
 # ─── Collection ────────────────────────────────────────────────────────
 
+def _log(job, msg):
+    """수집 로그를 job에 추가"""
+    ts = datetime.now().strftime("%H:%M:%S")
+    entry = f"[{ts}] {msg}"
+    job["logs"].append(entry)
+    print(f"[Intel] {msg}")
+
+
 def _run_collection(job_id: str, modules: list):
     job = _jobs[job_id]
     job["status"] = "running"
@@ -78,17 +86,32 @@ def _run_collection(job_id: str, modules: list):
         for name, (mod_path, func_name) in MODULES.items():
             if not (run_all or name in modules):
                 continue
-            job["current"] = f"{MODULE_LABELS.get(name, name)} 수집 중..."
+            label = MODULE_LABELS.get(name, name)
+            job["current"] = f"{label} 수집 중..."
+            _log(job, f"{label} 수집 시작")
             try:
                 mod = importlib.import_module(mod_path)
                 importlib.reload(mod)
-                data[name] = getattr(mod, func_name)()
+                result = getattr(mod, func_name)()
+                data[name] = result
+                # 수집 결과 요약 로그
+                if isinstance(result, dict):
+                    items = result.get("total_military_detected") or result.get("total_naval_detected") or \
+                            result.get("total_commodities") or result.get("total_currencies") or \
+                            result.get("event_statistics", {}).get("total_events") or \
+                            result.get("statistics", {}).get("total_hotspots") or 0
+                    alerts = len(result.get("alerts", []))
+                    _log(job, f"{label} 완료: 데이터 {items}건, 알림 {alerts}건")
+                else:
+                    _log(job, f"{label} 완료")
             except Exception as e:
                 job["errors"].append(f"{name}: {str(e)}")
-                print(f"[Intel] {name} 수집 실패: {e}")
+                _log(job, f"{label} 실패: {e}")
 
         job["current"] = "AI 브리핑 생성 중..."
+        _log(job, "Gemini AI 브리핑 생성 시작")
         briefing = generate_briefing(data)
+        _log(job, "브리핑 생성 완료")
 
         os.makedirs(BRIEFING_DIR, exist_ok=True)
         ts = datetime.utcnow().strftime("%Y%m%d_%H%M")
@@ -102,15 +125,16 @@ def _run_collection(job_id: str, modules: list):
 
         # 벡터 DB 인덱싱
         job["current"] = "벡터 DB 인덱싱 중..."
+        _log(job, "벡터 DB 인덱싱 시작")
         try:
             import vector_store
             vec_result = vector_store.index_intel_briefing(
                 briefing["briefing_text"], ts, data
             )
             job["vector_result"] = vec_result
-            print(f"[Intel] 벡터 인덱싱 완료: {vec_result}")
+            _log(job, f"벡터 인덱싱 완료: {vec_result}")
         except Exception as e:
-            print(f"[Intel] 벡터 인덱싱 실패: {e}")
+            _log(job, f"벡터 인덱싱 실패: {e}")
             job["vector_result"] = {"error": str(e)}
 
         stats = {
@@ -124,14 +148,28 @@ def _run_collection(job_id: str, modules: list):
             json.dump({**stats, "last_run": datetime.utcnow().isoformat(),
                        "briefing": f"briefing_{ts}.json"}, f, indent=2)
 
+        # PDF 생성
+        pdf_name = f"briefing_{ts}.pdf"
+        pdf_path = os.path.join(PDF_DIR, pdf_name)
+        os.makedirs(PDF_DIR, exist_ok=True)
+        try:
+            job["current"] = "PDF 생성 중..."
+            _log(job, "PDF 생성 시작")
+            generate_pdf(briefing["briefing_text"], pdf_path, ts)
+            briefing["pdf_file"] = pdf_name
+            _log(job, f"PDF 생성 완료: {pdf_name}")
+        except Exception as e:
+            pdf_name = None
+            _log(job, f"PDF 생성 실패: {e}")
+
         job["status"] = "done"
         job["finished_at"] = datetime.now().isoformat()
         job["briefing_file"] = f"briefing_{ts}.json"
-        job["pdf_file"] = None
+        job["pdf_file"] = pdf_name
         job["stats"] = stats
         job["current"] = "완료"
 
-        _send_telegram(briefing["briefing_text"], stats, None)
+        _send_telegram(briefing["briefing_text"], stats, pdf_name)
 
     except Exception as e:
         job["status"] = "error"
@@ -150,7 +188,7 @@ def start_collection(modules: list = None) -> str:
             "started_at": None, "finished_at": None,
             "current": "대기 중...", "errors": [],
             "stats": None, "briefing_file": None, "pdf_file": None,
-            "vector_result": None,
+            "vector_result": None, "logs": [],
         }
     threading.Thread(target=_run_collection, args=(job_id, modules or []), daemon=True).start()
     return job_id

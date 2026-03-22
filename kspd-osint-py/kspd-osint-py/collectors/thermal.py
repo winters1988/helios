@@ -1,5 +1,5 @@
 """
-KSPD OSINT Engine — NASA FIRMS 열 이상 수집기
+KSPD OSINT Engine - NASA FIRMS 열 이상 수집기
 군사시설 인근 위성 열점 탐지 (폭격, 화재, 시설 활동)
 """
 
@@ -48,7 +48,7 @@ def fetch_firms_region(region):
 
         # API 키 무효 응답 체크
         if "Invalid MAP_KEY" in resp.text:
-            print(f"  FIRMS {region['name']}: MAP_KEY 무효 — https://firms.modaps.eosdis.nasa.gov/api/area/ 에서 발급 필요")
+            print(f"  FIRMS {region['name']}: MAP_KEY 무효 - https://firms.modaps.eosdis.nasa.gov/api/area/ 에서 발급 필요")
             return None
 
         lines = resp.text.strip().split("\n")
@@ -104,9 +104,9 @@ def check_military_proximity(all_hotspots):
 
 def collect_thermal():
     """전체 열 이상 수집"""
-    print("\n[Thermal] ══ NASA FIRMS 열 이상 수집 시작 ══")
+    print("\n[Thermal] == NASA FIRMS 열 이상 수집 시작 ==")
     if not FIRMS_MAP_KEY:
-        print("[Thermal] ⚠ FIRMS_MAP_KEY 미설정 — 건너뜀 (https://firms.modaps.eosdis.nasa.gov/api/area/ 에서 발급)")
+        print("[Thermal] ⚠ FIRMS_MAP_KEY 미설정 - 건너뜀 (https://firms.modaps.eosdis.nasa.gov/api/area/ 에서 발급)")
         return {
             "collection_time": datetime.now(timezone.utc).isoformat(),
             "source": "NASA FIRMS (SKIPPED)", "classification": "UNCLASSIFIED // OSINT",
@@ -183,7 +183,7 @@ def collect_thermal():
     with open(out_path, "w", encoding="utf-8") as f:
         json.dump(summary, f, ensure_ascii=False, indent=2)
 
-    print(f"[Thermal] ══ 완료: 열점 {len(all_hotspots)}건, 군사시설 알림 {len(mil_alerts)}건 ══")
+    print(f"[Thermal] == 완료: 열점 {len(all_hotspots)}건, 군사시설 알림 {len(mil_alerts)}건 ==")
     return summary
 
 

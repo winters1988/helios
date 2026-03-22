@@ -1,13 +1,13 @@
 """
-KSPD OSINT Engine — 원자재/에너지 가격 수집기
+KSPD OSINT Engine - 원자재/에너지 가격 수집기
 1. 무료 API 활용: 유가(WTI/브렌트), 비철금속, 귀금속, 에너지
 2. 공급망 인텔리전스 Threat Brief 연동용
 
 데이터 소스 (우선순위):
-1. OilPriceAPI — 브렌트유 (무료: 일 100회)
-2. MetalPriceAPI — 귀금속 XAU/XAG/XPT/XPD (무료: 월 100회)
-3. Yahoo Finance (yfinance) — WTI, 천연가스, 비철금속 등 (무료, 키 불필요)
-4. Commodities API — 종합 원자재 (유료 전환 시 활성화)
+1. OilPriceAPI - 브렌트유 (무료: 일 100회)
+2. MetalPriceAPI - 귀금속 XAU/XAG/XPT/XPD (무료: 월 100회)
+3. Yahoo Finance (yfinance) - WTI, 천연가스, 비철금속 등 (무료, 키 불필요)
+4. Commodities API - 종합 원자재 (유료 전환 시 활성화)
 """
 
 import requests
@@ -116,7 +116,7 @@ def _fetch_metals_api(session):
     base_url = "https://api.metalpriceapi.com/v1/latest"
 
     # 무료 tier는 귀금속(XAU/XAG/XPT/XPD)만 지원
-    # 비철금속(XCU/ALU/NI 등)은 유료 — 별도 시도하여 가능한 것만 수집
+    # 비철금속(XCU/ALU/NI 등)은 유료 - 별도 시도하여 가능한 것만 수집
     free_metals = ["XAU", "XAG", "XPT", "XPD"]
     paid_metals = ["XCU", "ALU", "NI", "ZNC", "TIN", "LCO"]
 
@@ -137,7 +137,7 @@ def _fetch_metals_api(session):
                     rates = data.get("rates", {})
                     fetched = 0
                     for sym, rate in rates.items():
-                        # USD 접두사 제거 (USDXAU → XAU)
+                        # USD 접두사 제거 (USDXAU -> XAU)
                         clean_sym = sym.replace("USD", "") if sym.startswith("USD") else sym
                         if clean_sym in symbols and rate and rate > 0:
                             price_usd = round(1.0 / rate, 4) if rate != 0 else 0
@@ -171,20 +171,20 @@ def _fetch_metals_api(session):
     return None
 
 
-# ══════════════════════════════════════════════════
-# Yahoo Finance — 무료, 키 불필요
-# COMMODITY_WATCHLIST 심볼 → Yahoo Finance 선물 심볼 매핑
-# ══════════════════════════════════════════════════
+# ==================================================
+# Yahoo Finance - 무료, 키 불필요
+# COMMODITY_WATCHLIST 심볼 -> Yahoo Finance 선물 심볼 매핑
+# ==================================================
 
 YAHOO_SYMBOL_MAP = {
     # 에너지
     "WTI":   {"yf": "CL=F",  "unit_note": "USD/bbl"},
     "BRENT": {"yf": "BZ=F",  "unit_note": "USD/bbl"},
     "NG":    {"yf": "NG=F",  "unit_note": "USD/MMBtu"},
-    # COAL: Yahoo Finance에 석탄 선물 없음 — 수집 불가
+    # COAL: Yahoo Finance에 석탄 선물 없음 - 수집 불가
 
     # 비철금속
-    "XCU":   {"yf": "HG=F",  "unit_note": "USD/lb",  "to_ton": 2204.62},  # lb → 톤 환산
+    "XCU":   {"yf": "HG=F",  "unit_note": "USD/lb",  "to_ton": 2204.62},  # lb -> 톤 환산
     "ALU":   {"yf": "ALI=F", "unit_note": "USD/ton"},
     "ZNC":   {"yf": "ZNC=F", "unit_note": "USD/ton"},
 
@@ -194,7 +194,7 @@ YAHOO_SYMBOL_MAP = {
     "XPT":   {"yf": "PL=F",  "unit_note": "USD/oz"},
     "XPD":   {"yf": "PA=F",  "unit_note": "USD/oz"},
 
-    # 핵심광물 — 직접 선물 없음, ETF 프록시
+    # 핵심광물 - 직접 선물 없음, ETF 프록시
     "LCO":   {"yf": "LIT",   "unit_note": "ETF price", "proxy": True,
               "proxy_note": "Global X Lithium & Battery Tech ETF (직접 리튬 가격 아님)"},
 }
@@ -224,7 +224,7 @@ def _fetch_yahoo_finance(needed_symbols):
             if not price or price <= 0:
                 continue
 
-            # 구리: lb → 톤 환산 (선택)
+            # 구리: lb -> 톤 환산 (선택)
             display_price = price
             if mapping.get("to_ton"):
                 display_price = round(price * mapping["to_ton"], 2)
@@ -340,7 +340,7 @@ def _generate_alerts(prices):
 
 def collect_commodity():
     """원자재/에너지 가격 전체 수집"""
-    print("\n[Commodity] ══ 원자재/에너지 가격 수집 시작 ══")
+    print("\n[Commodity] == 원자재/에너지 가격 수집 시작 ==")
 
     session = requests.Session()
     all_prices = {}
@@ -372,7 +372,7 @@ def collect_commodity():
 
     session.close()
 
-    # 4차: Yahoo Finance — 아직 수집되지 않은 심볼 보충 (무료, 키 불필요)
+    # 4차: Yahoo Finance - 아직 수집되지 않은 심볼 보충 (무료, 키 불필요)
     watchlist_symbols = set(COMMODITY_WATCHLIST.keys())
     collected_symbols = set(all_prices.keys())
     # OIL_BRENT는 BRENT와 같은 데이터이므로 BRENT도 수집된 것으로 처리
@@ -394,7 +394,7 @@ def collect_commodity():
 
     # 가격 메타데이터 추가
     for symbol, data in all_prices.items():
-        # OIL_BRENT는 OilPriceAPI 전용 키 → BRENT 메타데이터 사용
+        # OIL_BRENT는 OilPriceAPI 전용 키 -> BRENT 메타데이터 사용
         lookup_key = "BRENT" if symbol == "OIL_BRENT" else symbol
         info = COMMODITY_WATCHLIST.get(lookup_key, {})
         data["name_kr"] = info.get("name_kr", symbol)
@@ -442,7 +442,7 @@ def collect_commodity():
     with open(out_path, "w", encoding="utf-8") as f:
         json.dump(summary, f, ensure_ascii=False, indent=2)
 
-    print(f"[Commodity] ══ 완료: {len(all_prices)}개 원자재, 알림 {len(alerts)}건 ══")
+    print(f"[Commodity] == 완료: {len(all_prices)}개 원자재, 알림 {len(alerts)}건 ==")
     return summary
 
 

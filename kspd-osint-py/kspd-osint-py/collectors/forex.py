@@ -1,5 +1,5 @@
 """
-KSPD OSINT Engine — 환율 데이터 수집기
+KSPD OSINT Engine - 환율 데이터 수집기
 원/달러, 원/위안, 원/엔 등 주요 환율 실시간 수집
 
 데이터 소스:
@@ -155,7 +155,7 @@ def _generate_alerts(rates):
 
 def collect_forex():
     """전체 환율 데이터 수집"""
-    print("\n[Forex] ══ 환율 데이터 수집 시작 ══")
+    print("\n[Forex] == 환율 데이터 수집 시작 ==")
 
     session = requests.Session()
     rates = None
@@ -166,9 +166,9 @@ def collect_forex():
     if rates:
         source_used = "ExchangeRate-API"
 
-    # 2차: Fallback — Open ER API (키 불필요)
+    # 2차: Fallback - Open ER API (키 불필요)
     if not rates:
-        print("  ExchangeRate-API 실패 — Open ER API로 fallback")
+        print("  ExchangeRate-API 실패 - Open ER API로 fallback")
         rates = _fetch_open_exchange_rates(session)
         if rates:
             source_used = "Open ER API"
@@ -176,7 +176,7 @@ def collect_forex():
     session.close()
 
     if not rates:
-        print("[Forex] ══ 수집 실패: 모든 API 응답 없음 ══")
+        print("[Forex] == 수집 실패: 모든 API 응답 없음 ==")
         return {
             "collection_time": datetime.now(timezone.utc).isoformat(),
             "sources": [],
@@ -217,7 +217,7 @@ def collect_forex():
     with open(out_path, "w", encoding="utf-8") as f:
         json.dump(summary, f, ensure_ascii=False, indent=2)
 
-    print(f"[Forex] ══ 완료: {len(rates)}개 환율, 알림 {len(alerts)}건 ══")
+    print(f"[Forex] == 완료: {len(rates)}개 환율, 알림 {len(alerts)}건 ==")
     return summary
 
 
